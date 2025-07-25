@@ -84,13 +84,13 @@ export interface HttpReqOptions {
  * All HTTP methods return a Promise that resolves to a response object with:
  * ```typescript
  * {
- *   status: number;         // HTTP status code (200, 404, 500, etc.)
- *   body: any;              // Response body data (JSON, string, etc.)
- *   request: {              // Request metadata
- *     method: string;       // HTTP method used
- *     url: string;          // Full URL that was requested
- *     header: any;          // Headers that were sent
- *     _data: any;           // Request body that was sent
+ *   status: number;                    // HTTP status code (200, 404, 500, etc.)
+ *   body: T;                           // Response body data (generic type, JSON, string, etc.)
+ *   request: {                         // Request metadata
+ *     method: string;                  // HTTP method used
+ *     url: string;                     // Full URL that was requested
+ *     header: Record<string, unknown>; // Headers that were sent
+ *     _data?: unknown;                 // Request body that was sent (optional)
  *   }
  * }
  * ```
@@ -340,7 +340,7 @@ export class HttpReq {
    * Only certain network-level errors are considered retryable (ECONNREFUSED, ECONNRESET, etc.).
    * HTTP status errors (4xx, 5xx) are NOT retried.
    * 
-   * @param error - The error to check (can be string, error object, or any type)
+   * @param error - The error to check (string error code, NetworkError, or Error object)
    * @returns True if the error should trigger a retry, false otherwise
    * 
    * @example

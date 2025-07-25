@@ -18,6 +18,8 @@ interface RouteResponse {
 interface ReceivedRequest {
   method: string;
   url: string;
+  path: string;
+  query: Record<string, string>;
   headers: http.IncomingHttpHeaders;
   body?: unknown;
 }
@@ -57,7 +59,9 @@ export class TestServer {
       // Store the received request
       this.receivedRequests.push({
         method,
-        url: path,
+        url: req.url ?? '',
+        path,
+        query: parsedUrl.query as Record<string, string> ?? {},
         headers: req.headers,
         body: parsedBody
       });
@@ -147,6 +151,42 @@ export class TestServer {
   // Get the last received request
   getLastRequest(): ReceivedRequest | undefined {
     return this.receivedRequests[this.receivedRequests.length - 1];
+  }
+
+  // Helper method to check if a header was received
+  wasHeaderReceived(headerName: string, expectedValue?: string): boolean {
+    const lastRequest = this.getLastRequest();
+    if (!lastRequest) {
+      return false;
+    }
+    
+    const headerKey = Object.keys(lastRequest.headers).find(
+      key => key.toLowerCase() === headerName.toLowerCase()
+    );
+    
+    if (!headerKey) {
+      return false;
+    }
+    
+    if (expectedValue !== undefined) {
+      return lastRequest.headers[headerKey] === expectedValue;
+    }
+    
+    return true;
+  }
+
+  // Helper method to check query parameters
+  wasQueryParamReceived(paramName: string, expectedValue?: string): boolean {
+    const lastRequest = this.getLastRequest();
+    if (!lastRequest) {
+      return false;
+    }
+    
+    if (expectedValue !== undefined) {
+      return lastRequest.query[paramName] === expectedValue;
+    }
+    
+    return paramName in lastRequest.query;
   }
 
   // Helper methods for common test scenarios

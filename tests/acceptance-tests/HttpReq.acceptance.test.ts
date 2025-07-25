@@ -596,7 +596,328 @@ describe.each([
       const receivedRequests = testServer.getReceivedRequests();
       expect(receivedRequests).toHaveLength(1);
       expect(receivedRequests[0].method).toBe('GET');
-      expect(receivedRequests[0].url).toBe('/users');
+      expect(receivedRequests[0].path).toBe('/users'); // Use path instead of url for query parameter tests
+    });
+  });
+
+  describe('Headers and Parameters - Real Network Testing', () => {
+    it('should include custom headers in request over real network', async () => {
+      await testServer.start();
+      
+      const customHeaders = {
+        'Authorization': 'Bearer token123',
+        'X-Custom-Header': 'custom-value'
+      };
+
+      // Use success fixture for the response
+      testServer.setRouteResponse('GET', '/users', {
+        status: responseFixtures.success.status,
+        body: responseFixtures.success.body
+      });
+
+      const response = await httpReq.GET<TestSuccessResponse>(`${testServer.getUrl()}/users`, { 
+        headers: customHeaders 
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body.message).toBe('Success');
+      
+      // Verify headers were sent over the real network
+      expect(testServer.getRequestCount()).toBe(1);
+      expect(testServer.wasHeaderReceived('Authorization', 'Bearer token123')).toBe(true);
+      expect(testServer.wasHeaderReceived('X-Custom-Header', 'custom-value')).toBe(true);
+      
+      const receivedRequests = testServer.getReceivedRequests();
+      expect(receivedRequests[0].headers.authorization).toBe('Bearer token123');
+      expect(receivedRequests[0].headers['x-custom-header']).toBe('custom-value');
+    });
+
+    it('should handle query parameters correctly over real network', async () => {
+      await testServer.start();
+      
+      // Use userList fixture for query parameter test
+      testServer.setRouteResponse('GET', '/users', {
+        status: responseFixtures.userList.status,
+        body: responseFixtures.userList.body
+      });
+
+      const response = await httpReq.GET<TestUsersResponse>(`${testServer.getUrl()}/users?page=1&limit=10&active=true`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.users).toHaveLength(3);
+      expect(response.body.users[0].name).toBe('Alice');
+      
+      // Verify query parameters were sent over the real network
+      expect(testServer.getRequestCount()).toBe(1);
+      expect(testServer.wasQueryParamReceived('page', '1')).toBe(true);
+      expect(testServer.wasQueryParamReceived('limit', '10')).toBe(true);
+      expect(testServer.wasQueryParamReceived('active', 'true')).toBe(true);
+      
+      const receivedRequests = testServer.getReceivedRequests();
+      expect(receivedRequests[0].query.page).toBe('1');
+      expect(receivedRequests[0].query.limit).toBe('10');
+      expect(receivedRequests[0].query.active).toBe('true');
+    });
+
+    it('should accept query parameters as an object over real network', async () => {
+      await testServer.start();
+      
+      // Use userList fixture
+      testServer.setRouteResponse('GET', '/users', {
+        status: responseFixtures.userList.status,
+        body: responseFixtures.userList.body
+      });
+
+      const response = await httpReq.GET<TestUsersResponse>(`${testServer.getUrl()}/users`, { 
+        query: { page: '1', limit: '10', active: 'true' } 
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body.users).toHaveLength(3);
+      
+      // Verify query object was sent over the real network
+      expect(testServer.getRequestCount()).toBe(1);
+      expect(testServer.wasQueryParamReceived('page', '1')).toBe(true);
+      expect(testServer.wasQueryParamReceived('limit', '10')).toBe(true);
+      expect(testServer.wasQueryParamReceived('active', 'true')).toBe(true);
+    });
+
+    it('should merge URL query parameters with query object over real network', async () => {
+      await testServer.start();
+      
+      // Use userList fixture
+      testServer.setRouteResponse('GET', '/users', {
+        status: responseFixtures.userList.status,
+        body: responseFixtures.userList.body
+      });
+
+      const response = await httpReq.GET<TestUsersResponse>(`${testServer.getUrl()}/users?page=1&limit=10&sort=name`, { 
+        query: { page: '2', active: 'true' } // page should override to '2'
+      });
+
+      expect(response.status).toBe(200);
+      
+      // Verify query merging happened correctly over the real network
+      expect(testServer.getRequestCount()).toBe(1);
+      expect(testServer.wasQueryParamReceived('page', '2')).toBe(true); // overridden value
+      expect(testServer.wasQueryParamReceived('limit', '10')).toBe(true); // from URL
+      expect(testServer.wasQueryParamReceived('sort', 'name')).toBe(true); // from URL
+      expect(testServer.wasQueryParamReceived('active', 'true')).toBe(true); // from object
+    });
+
+    it('should handle query object with various data types over real network', async () => {
+      await testServer.start();
+      
+      // Use userList fixture
+      testServer.setRouteResponse('GET', '/users', {
+        status: responseFixtures.userList.status,
+        body: responseFixtures.userList.body
+      });
+
+      const response = await httpReq.GET<TestUsersResponse>(`${testServer.getUrl()}/users`, { 
+        query: { 
+          page: 1,                           // number should become '1'
+          active: true,                      // boolean should become 'true'
+          count: 42,                         // number should become '42'
+          tags: ['javascript', 'typescript'] // array should become 'javascript,typescript'
+        } 
+      });
+
+      expect(response.status).toBe(200);
+      
+      // Verify data type conversion over the real network
+      expect(testServer.getRequestCount()).toBe(1);
+      expect(testServer.wasQueryParamReceived('page', '1')).toBe(true);
+      expect(testServer.wasQueryParamReceived('active', 'true')).toBe(true);
+      expect(testServer.wasQueryParamReceived('count', '42')).toBe(true);
+      expect(testServer.wasQueryParamReceived('tags', 'javascript,typescript')).toBe(true);
+    });
+
+    it('should support query parameters in POST requests over real network', async () => {
+      await testServer.start();
+      
+      // Use success fixture for POST response
+      testServer.setRouteResponse('POST', '/api/submit', {
+        status: responseFixtures.success.status,
+        body: responseFixtures.success.body
+      });
+
+      const response = await httpReq.POST<TestSuccessResponse>(`${testServer.getUrl()}/api/submit`, { 
+        query: { filter: 'active', format: 'json' },
+        body: { data: 'test' } 
+      });
+
+      expect(response.status).toBe(200);
+      
+      // Verify query parameters in POST request over real network
+      expect(testServer.getRequestCount()).toBe(1);
+      expect(testServer.wasQueryParamReceived('filter', 'active')).toBe(true);
+      expect(testServer.wasQueryParamReceived('format', 'json')).toBe(true);
+      
+      const receivedRequests = testServer.getReceivedRequests();
+      expect(receivedRequests[0].method).toBe('POST');
+      expect(receivedRequests[0].body).toEqual({ data: 'test' });
+    });
+
+    it('should skip null and undefined values in query parameters over real network', async () => {
+      await testServer.start();
+      
+      // Use success fixture
+      testServer.setRouteResponse('GET', '/filtered', {
+        status: responseFixtures.success.status,
+        body: responseFixtures.success.body
+      });
+
+      const response = await httpReq.GET<TestSuccessResponse>(`${testServer.getUrl()}/filtered`, { 
+        query: { 
+          active: true, 
+          category: 'tech',
+          nullValue: null,
+          undefinedValue: undefined,
+          emptyString: ''
+        } 
+      });
+
+      expect(response.status).toBe(200);
+      
+      // Verify only valid values were sent over the real network
+      expect(testServer.getRequestCount()).toBe(1);
+      expect(testServer.wasQueryParamReceived('active', 'true')).toBe(true);
+      expect(testServer.wasQueryParamReceived('category', 'tech')).toBe(true);
+      expect(testServer.wasQueryParamReceived('nullValue')).toBe(false);
+      expect(testServer.wasQueryParamReceived('undefinedValue')).toBe(false);
+      expect(testServer.wasQueryParamReceived('emptyString')).toBe(false);
+    });
+
+    it('should maintain backward compatibility when no query object provided over real network', async () => {
+      await testServer.start();
+      
+      // Use success fixture
+      testServer.setRouteResponse('GET', '/legacy', {
+        status: responseFixtures.success.status,
+        body: responseFixtures.success.body
+      });
+
+      const response = await httpReq.GET<TestSuccessResponse>(`${testServer.getUrl()}/legacy?filter=old&mode=compat`);
+
+      expect(response.status).toBe(200);
+      
+      // Verify URL-only query parameters over real network
+      expect(testServer.getRequestCount()).toBe(1);
+      expect(testServer.wasQueryParamReceived('filter', 'old')).toBe(true);
+      expect(testServer.wasQueryParamReceived('mode', 'compat')).toBe(true);
+    });
+
+    it('should support query parameters in PUT, PATCH, and DELETE requests over real network', async () => {
+      await testServer.start();
+      
+      // Test PUT with query parameters
+      testServer.setRouteResponse('PUT', '/items/1', {
+        status: responseFixtures.success.status,
+        body: responseFixtures.success.body
+      });
+
+      const putResponse = await httpReq.PUT<TestSuccessResponse>(`${testServer.getUrl()}/items/1`, { 
+        query: { version: 2, validate: true },
+        body: { name: 'Updated Item' } 
+      });
+
+      expect(putResponse.status).toBe(200);
+      expect(testServer.wasQueryParamReceived('version', '2')).toBe(true);
+      expect(testServer.wasQueryParamReceived('validate', 'true')).toBe(true);
+
+      // Reset for PATCH test (but don't restart server)
+      testServer.reset();
+      
+      testServer.setRouteResponse('PATCH', '/items/2', {
+        status: responseFixtures.success.status,
+        body: responseFixtures.success.body
+      });
+
+      const patchResponse = await httpReq.PATCH<TestSuccessResponse>(`${testServer.getUrl()}/items/2`, { 
+        query: { fields: 'name,email', notify: false },
+        body: { email: 'newemail@test.com' } 
+      });
+
+      expect(patchResponse.status).toBe(200);
+      expect(testServer.wasQueryParamReceived('fields', 'name,email')).toBe(true);
+      expect(testServer.wasQueryParamReceived('notify', 'false')).toBe(true);
+
+      // Reset for DELETE test (but don't restart server)
+      testServer.reset();
+      
+      testServer.setRouteResponse('DELETE', '/items/3', {
+        status: responseFixtures.noContent.status,
+        body: responseFixtures.noContent.body
+      });
+
+      const deleteResponse = await httpReq.DELETE(`${testServer.getUrl()}/items/3`, { 
+        query: { cascade: true, backup: false }
+      });
+
+      expect(deleteResponse.status).toBe(204);
+      expect(testServer.wasQueryParamReceived('cascade', 'true')).toBe(true);
+      expect(testServer.wasQueryParamReceived('backup', 'false')).toBe(true);
+    });
+
+    it('should handle special characters in query parameters over real network', async () => {
+      await testServer.start();
+      
+      // Use success fixture
+      testServer.setRouteResponse('GET', '/search', {
+        status: responseFixtures.success.status,
+        body: responseFixtures.success.body
+      });
+
+      const response = await httpReq.GET<TestSuccessResponse>(`${testServer.getUrl()}/search`, { 
+        query: { 
+          q: 'hello world',            // space should be encoded
+          filter: 'user@example.com',  // @ symbol
+          tags: 'c++',                 // + should be encoded
+          special: 'value&more=data'   // & and = should be encoded
+        } 
+      });
+
+      expect(response.status).toBe(200);
+      
+      // Verify special characters were properly encoded over real network
+      expect(testServer.getRequestCount()).toBe(1);
+      expect(testServer.wasQueryParamReceived('q', 'hello world')).toBe(true);
+      expect(testServer.wasQueryParamReceived('filter', 'user@example.com')).toBe(true);
+      expect(testServer.wasQueryParamReceived('tags', 'c++')).toBe(true);
+      expect(testServer.wasQueryParamReceived('special', 'value&more=data')).toBe(true);
+    });
+
+    it('should handle empty arrays and zero/false values in query parameters over real network', async () => {
+      await testServer.start();
+      
+      // Use success fixture
+      testServer.setRouteResponse('GET', '/edge-cases', {
+        status: responseFixtures.success.status,
+        body: responseFixtures.success.body
+      });
+
+      const response = await httpReq.GET<TestSuccessResponse>(`${testServer.getUrl()}/edge-cases`, { 
+        query: { 
+          active: false,        // boolean false should become 'false'
+          count: 0,             // number zero should become '0'
+          emptyArray: [],       // empty array should be skipped
+          search: 'test',
+          nullValue: null,      // should be skipped
+          emptyString: ''       // should be skipped
+        } 
+      });
+
+      expect(response.status).toBe(200);
+      
+      // Verify edge case handling over real network
+      expect(testServer.getRequestCount()).toBe(1);
+      expect(testServer.wasQueryParamReceived('active', 'false')).toBe(true);  // false is valid
+      expect(testServer.wasQueryParamReceived('count', '0')).toBe(true);        // 0 is valid
+      expect(testServer.wasQueryParamReceived('search', 'test')).toBe(true);
+      expect(testServer.wasQueryParamReceived('emptyArray')).toBe(false);       // empty array skipped
+      expect(testServer.wasQueryParamReceived('nullValue')).toBe(false);        // null skipped
+      expect(testServer.wasQueryParamReceived('emptyString')).toBe(false);      // empty string skipped
     });
   });
 });

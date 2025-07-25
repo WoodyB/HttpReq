@@ -6,7 +6,9 @@ const HTTP_REQUEST = {
  * HTTP client type enumeration for selecting between axios and superagent implementations.
  */
 export enum HttpClientType {
+  // eslint-disable-next-line no-unused-vars
   AXIOS = 'axios',
+  // eslint-disable-next-line no-unused-vars
   SUPERAGENT = 'superagent'
 }
 
@@ -15,7 +17,8 @@ export enum HttpClientType {
  */
 export interface HttpReqOptions {
   /** Custom logger function. Defaults to console.log if not provided. */
-  logger?: (message: string) => void;
+  // eslint-disable-next-line no-unused-vars
+  logger?: (_message: string) => void;
   /** HTTP client type to use. Defaults to AXIOS if not provided. */
   clientType?: HttpClientType;
 }
@@ -67,6 +70,7 @@ export interface HttpReqOptions {
  * ```
  */
 export class HttpReq {
+  // eslint-disable-next-line no-unused-vars
   private logger: (message: string) => void;
   private clientType: HttpClientType;
   private httpClient: IHttpClient;
@@ -95,8 +99,8 @@ export class HttpReq {
    * ```
    */
   constructor(options: HttpReqOptions = {}) {
-    this.logger = options.logger || console.log;
-    this.clientType = options.clientType || HttpClientType.AXIOS;
+    this.logger = options.logger ?? console.log;
+    this.clientType = options.clientType ?? HttpClientType.AXIOS;
     
     if (this.clientType === HttpClientType.AXIOS) {
       this.httpClient = new AxiosHttpClient(this.logger);
@@ -318,20 +322,28 @@ export class HttpReq {
  * @internal
  */
 interface IHttpClient {
-  GET(url: string, data?: { headers?: object, query?: object }): Promise<any>;
-  POST(url: string, data?: { headers?: object, body?: object, query?: object }): Promise<any>;
-  PUT(url: string, data?: { headers?: object, body?: object, query?: object }): Promise<any>;
-  PATCH(url: string, data?: { headers?: object, body?: object, query?: object }): Promise<any>;
-  DELETE(url: string, data?: { headers?: object, body?: object, query?: object }): Promise<any>;
-  isValidRetryErr(error: any): boolean;
+  // eslint-disable-next-line no-unused-vars
+  GET(_url: string, _data?: { headers?: object, query?: object }): Promise<any>;
+  // eslint-disable-next-line no-unused-vars
+  POST(_url: string, _data?: { headers?: object, body?: object, query?: object }): Promise<any>;
+  // eslint-disable-next-line no-unused-vars
+  PUT(_url: string, _data?: { headers?: object, body?: object, query?: object }): Promise<any>;
+  // eslint-disable-next-line no-unused-vars
+  PATCH(_url: string, _data?: { headers?: object, body?: object, query?: object }): Promise<any>;
+  // eslint-disable-next-line no-unused-vars
+  DELETE(_url: string, _data?: { headers?: object, body?: object, query?: object }): Promise<any>;
+  // eslint-disable-next-line no-unused-vars
+  isValidRetryErr(_error: any): boolean;
 }
 
 // Superagent HTTP client implementation
 class SuperagentHttpClient implements IHttpClient {
-  private logger: (message: string) => void;
+  // eslint-disable-next-line no-unused-vars
+  private logger: (_message: string) => void;
   private _request: any = null;
 
-  constructor(logger: (message: string) => void) {
+  // eslint-disable-next-line no-unused-vars
+  constructor(logger: (_message: string) => void) {
     this.logger = logger;
   }
 
@@ -386,7 +398,7 @@ class SuperagentHttpClient implements IHttpClient {
     ];
     
     // Handle both string error codes and error objects
-    const errorCode = typeof err === 'string' ? err : (err?.code || err?.message);
+    const errorCode = typeof err === 'string' ? err : (err?.code ?? err?.message);
     return validRetryErrs.includes(errorCode);
   }
 
@@ -436,7 +448,7 @@ class SuperagentHttpClient implements IHttpClient {
         return response;
 
       } catch (error: any) {
-        if (attempt < 3 && this.isValidRetryErr(error.code || error.message)) {
+        if (attempt < 3 && this.isValidRetryErr(error.code ?? error.message)) {
           continue;
         }
         throw error; // No more retries or not a retryable error
@@ -447,11 +459,13 @@ class SuperagentHttpClient implements IHttpClient {
 
 // Axios HTTP client implementation
 class AxiosHttpClient implements IHttpClient {
-  private logger: (message: string) => void;
+  // eslint-disable-next-line no-unused-vars
+  private logger: (_message: string) => void;
   private axiosInstance: any;
   private _axios: any = null;
 
-  constructor(logger: (message: string) => void) {
+  // eslint-disable-next-line no-unused-vars
+  constructor(logger: (_message: string) => void) {
     this.logger = logger;
   }
 
@@ -509,7 +523,7 @@ class AxiosHttpClient implements IHttpClient {
     ];
     
     // Handle both string error codes and error objects
-    const errorCode = typeof error === 'string' ? error : (error?.code || error?.message);
+    const errorCode = typeof error === 'string' ? error : (error?.code ?? error?.message);
     return validRetryErrs.includes(errorCode);
   }
 
@@ -534,55 +548,47 @@ class AxiosHttpClient implements IHttpClient {
 
     const startDate = new Date();
     
-    try {
-      let response: any;
-      
-      // Configure axios request
-      const config = {
-        method: method.toLowerCase(),
-        url: baseUrl,
-        headers: finalHeaders,
-        data: body,
-        params: processedQuery,
-        validateStatus: (status: number) => status < 600, // Same as superagent .ok()
-      };
+    let response: any;
+    
+    // Configure axios request
+    const config = {
+      method: method.toLowerCase(),
+      url: baseUrl,
+      headers: finalHeaders,
+      data: body,
+      params: processedQuery,
+      validateStatus: (status: number) => status < 600, // Same as superagent .ok()
+    };
 
-      // Retry logic
-      for (let attempt = 0; attempt <= 3; attempt++) {
-        try {
-          response = await this.axiosInstance.request(config);
-          break;
-        } catch (error: any) {
-          if (attempt < 3 && this.isValidRetryErr(error)) {
-            continue;
-          }
-          throw error; // No more retries or not a retryable error
+    // Retry logic
+    for (let attempt = 0; attempt <= 3; attempt++) {
+      try {
+        response = await this.axiosInstance.request(config);
+        break;
+      } catch (error: any) {
+        if (attempt < 3 && this.isValidRetryErr(error)) {
+          continue;
         }
+        throw error; // No more retries or not a retryable error
       }
-
-      const formattedResponse = {
-        status: response!.status,
-        body: response!.data,
-        request: {
-          method: method,
-          url: url,
-          header: finalHeaders,
-          _data: body
-        }
-      };
-
-      // Log the request and response
-      const formattedRsp = logRequest(formatRsp(formattedResponse), startDate);
-      this.logger(formattedRsp);
-
-      return formattedResponse;
-
-    } catch (error: any) {
-      // Network error or timeout - no response received from server
-      // Note: HTTP status errors (404, 500, etc.) are handled by the success path above
-      // because validateStatus: (status) => status < 600 prevents axios from throwing
-      throw error;
     }
+
+    const formattedResponse = {
+      status: response!.status,
+      body: response!.data,
+      request: {
+        method: method,
+        url: url,
+        header: finalHeaders,
+        _data: body
+      }
+    };
+
+    // Log the request and response
+    const formattedRsp = logRequest(formatRsp(formattedResponse), startDate);
+    this.logger(formattedRsp);
+
+    return formattedResponse;
   }
 }
 
@@ -643,7 +649,7 @@ function formatRsp(res: any) {
   const regexBearerAuthToken = /Authorization:\s*Bearer.*/gi;
   const regexVerificationToken = /verification-token:\s.*/gi;
 
-  let headers: string = JSON.stringify(res.request.header || {}, null, 4);
+  let headers: string = JSON.stringify(res.request.header ?? {}, null, 4);
   headers = headers.replace(regexBracesQuotesCommas, '');
   headers = headers.replace(
     regexBasicAuthToken,

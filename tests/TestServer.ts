@@ -28,8 +28,8 @@ export class TestServer {
     }
 
     const sendResponse = () => {
-      const status = response.status || 200;
-      const body = response.body || { success: true, requestNumber: requestIndex + 1 };
+      const status = response.status ?? 200;
+      const body = response.body ?? { success: true, requestNumber: requestIndex + 1 };
       
       res.writeHead(status, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(body));
@@ -94,7 +94,7 @@ export class TestServer {
     // Add success response
     responses.push({ 
       status: 200, 
-      body: successBody || { success: true, retriesNeeded: failures }
+      body: successBody ?? { success: true, retriesNeeded: failures }
     });
     
     this.setResponses(responses);

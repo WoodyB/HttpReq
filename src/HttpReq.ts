@@ -145,6 +145,7 @@ export class HttpReq {
    * ```
    */
   constructor(options: HttpReqOptions = {}) {
+    // eslint-disable-next-line no-console
     this.logger = options.logger ?? console.log;
     this.clientType = options.clientType ?? HttpClientType.AXIOS;
     
@@ -446,7 +447,14 @@ class SuperagentHttpClient implements IHttpClient {
     ];
     
     // Handle both string error codes and error objects
-    const errorCode = typeof err === 'string' ? err : (err as any)?.code ?? err.message;
+    let errorCode: string;
+    if (typeof err === 'string') {
+      errorCode = err;
+    } else if ('code' in err && typeof err.code === 'string') {
+      errorCode = err.code;
+    } else {
+      errorCode = err.message;
+    }
     return validRetryErrs.includes(errorCode);
   }
 
@@ -620,11 +628,11 @@ class AxiosHttpClient implements IHttpClient {
 
     const startDate = new Date();
     
-    let response: AxiosResponse<T>;
+    let response: AxiosResponse<T> | undefined;
     
     // Configure axios request
     const config: AxiosRequestConfig = {
-      method: method.toLowerCase() as any, // axios accepts lowercase method names
+      method: method.toLowerCase() as 'get' | 'post' | 'put' | 'patch' | 'delete',
       url: baseUrl,
       headers: finalHeaders,
       data: body,
@@ -645,9 +653,13 @@ class AxiosHttpClient implements IHttpClient {
       }
     }
 
+    if (!response) {
+      throw new Error('Request failed: no response received');
+    }
+
     const formattedResponse: HttpResponse<T> = {
-      status: response!.status,
-      body: response!.data,
+      status: response.status,
+      body: response.data,
       request: {
         method: method,
         url: url,
@@ -671,21 +683,38 @@ class AxiosHttpClient implements IHttpClient {
  */
 
 /**
+ * Interface for objects that may contain sensitive data fields
+ */
+interface SensitiveDataObject {
+  access_key?: string;
+  password?: string;
+  [key: string]: unknown;
+}
+
+/**
  * Obfuscates sensitive data in request objects for logging purposes.
  * @param args - Object that may contain sensitive fields
  * @returns Object with sensitive fields replaced with placeholder text
  */
-function obfuscate(args: any) {
-  const fixedArgs: any = args;
+function obfuscate<T extends SensitiveDataObject>(args: T): T {
+  const fixedArgs: T = { ...args };
   if (args.access_key) {
-    fixedArgs.access_key = 'ACCESS KEY HIDDEN';
+    (fixedArgs as SensitiveDataObject).access_key = 'ACCESS KEY HIDDEN';
   }
 
   if (args.password) {
-    fixedArgs.password = 'PASSWORD HIDDEN';
+    (fixedArgs as SensitiveDataObject).password = 'PASSWORD HIDDEN';
   }
 
   return fixedArgs;
+}
+
+/**
+ * Interface for formatted request/response log objects
+ */
+interface FormattedLogObject {
+  req: string;
+  rsp: string;
 }
 
 /**
@@ -694,9 +723,9 @@ function obfuscate(args: any) {
  * @param startDate - Request start timestamp
  * @returns Formatted log string with timing
  */
-function logRequest(reqObj: any, startDate: any): string {
-  const endDate: any = new Date();
-  const msec: number = Math.abs(endDate - startDate);
+function logRequest(reqObj: FormattedLogObject, startDate: Date): string {
+  const endDate = new Date();
+  const msec: number = Math.abs(endDate.getTime() - startDate.getTime());
 
   const output = [
     `::: ${startDate.toISOString()} :::`,
@@ -708,14 +737,28 @@ function logRequest(reqObj: any, startDate: any): string {
 }
 
 /**
+ * Interface for response objects used in logging
+ */
+interface LoggableResponse {
+  status: number;
+  body: unknown;
+  request: {
+    method: string;
+    url: string;
+    header?: Record<string, unknown>;
+    _data?: unknown;
+  };
+}
+
+/**
  * Formats a response object for logging with header obfuscation.
  * @param res - Response object to format
  * @returns Object with formatted request and response strings
  */
-function formatRsp(res: any) {
-  let data: any;
+function formatRsp(res: LoggableResponse): FormattedLogObject {
+  let data: string;
 
-  const output: any = {};
+  const output: FormattedLogObject = { req: '', rsp: '' };
   const regexBracesQuotesCommas = /({\n)|(")|(,)|(\n})/g;
   const regexBasicAuthToken = /Authorization:\s*Basic.*/gi;
   const regexBearerAuthToken = /Authorization:\s*Bearer.*/gi;
@@ -745,7 +788,7 @@ function formatRsp(res: any) {
   if (res.request._data) {
     data = `${JSON.stringify(
        
-      obfuscate(res.request._data),
+      obfuscate(res.request._data as SensitiveDataObject),
       null,
       4,
     )}`;
@@ -766,11 +809,11 @@ function formatRsp(res: any) {
  * @param options - Optional parsing configuration
  * @returns Object with parsed key-value pairs
  */
-function processKeyPairs(str: string, options?: { delimiter: string, assignmentOp: string }): any {
+function processKeyPairs(str: string, options?: { delimiter: string, assignmentOp: string }): Record<string, string> {
   const delimiter: string = options ? options.delimiter : '&';
   const assignmentOp: string = options ? options.assignmentOp : '=';
   const pairs: string[] = str.split(delimiter);
-  const resultMap = new Map();
+  const resultMap = new Map<string, string>();
 
   pairs.forEach((pairStr: string) => {
     const pairAr: string[] = pairStr.split(assignmentOp);
@@ -786,9 +829,9 @@ function processKeyPairs(str: string, options?: { delimiter: string, assignmentO
  * @param queryObj - Query object to merge (optional)
  * @returns Object containing { baseUrl, mergedQuery }
  */
-function mergeQueryParameters(url: string, queryObj?: object): { baseUrl: string, mergedQuery: any } {
+function mergeQueryParameters(url: string, queryObj?: object): { baseUrl: string, mergedQuery: Record<string, unknown> } {
   const [baseUrl, queryStr] = url.split('?');
-  let urlQuery: any = {};
+  let urlQuery: Record<string, string> = {};
 
   // Parse existing URL query parameters
   if (queryStr) {
@@ -807,12 +850,12 @@ function mergeQueryParameters(url: string, queryObj?: object): { baseUrl: string
  * @param queryObj - Query object to process
  * @returns Processed query object suitable for HTTP client libraries
  */
-function processQueryObject(queryObj: any): any {
+function processQueryObject(queryObj: Record<string, unknown> | null | undefined): Record<string, string> {
   if (!queryObj || typeof queryObj !== 'object') {
     return {};
   }
 
-  const processedQuery: any = {};
+  const processedQuery: Record<string, string> = {};
 
   Object.keys(queryObj).forEach(key => {
     const value = queryObj[key];

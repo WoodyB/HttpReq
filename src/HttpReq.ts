@@ -1,6 +1,52 @@
+import axios, { AxiosInstance, AxiosResponse, AxiosRequestConfig, AxiosError } from 'axios';
+import * as superagent from 'superagent';
+
 const HTTP_REQUEST = {
   TIMEOUT: 70000,
 };
+
+/**
+ * HTTP response object structure returned by all HTTP methods
+ */
+export interface HttpResponse<T = unknown> {
+  /** HTTP status code (200, 404, 500, etc.) */
+  status: number;
+  /** Response body data (JSON, string, etc.) */
+  body: T;
+  /** Request metadata */
+  request: {
+    /** HTTP method used */
+    method: string;
+    /** Full URL that was requested */
+    url: string;
+    /** Headers that were sent */
+    header: Record<string, unknown>;
+    /** Request body that was sent */
+    _data?: unknown;
+  };
+}
+
+/**
+ * HTTP request configuration options
+ */
+export interface HttpRequestConfig {
+  /** Custom headers to include in the request */
+  headers?: object;
+  /** Request body data to send */
+  body?: object;
+  /** Query parameters object */
+  query?: object;
+}
+
+/**
+ * Error object structure for network errors
+ */
+export interface NetworkError extends Error {
+  /** Error code (ECONNREFUSED, ETIMEDOUT, etc.) */
+  code?: string;
+  /** Error message */
+  message: string;
+}
 
 /**
  * HTTP client type enumeration for selecting between axios and superagent implementations.
@@ -99,6 +145,7 @@ export class HttpReq {
    * ```
    */
   constructor(options: HttpReqOptions = {}) {
+    // eslint-disable-next-line no-console
     this.logger = options.logger ?? console.log;
     this.clientType = options.clientType ?? HttpClientType.AXIOS;
     
@@ -154,8 +201,8 @@ export class HttpReq {
    * const response = await client.GET('https://api.example.com/users?limit=10&offset=0');
    * ```
    */
-  public GET(url: string, data?: { headers?: object, query?: object }) {
-    return this.httpClient.GET(url, data);
+  public GET<T = unknown>(url: string, data?: Partial<HttpRequestConfig>): Promise<HttpResponse<T>> {
+    return this.httpClient.GET<T>(url, data);
   }
 
   /**
@@ -190,7 +237,7 @@ export class HttpReq {
    * });
    * ```
    */
-  public POST(url: string, data?: { headers?: object, body?: object, query?: object }) {
+  public POST<T = unknown>(url: string, data?: HttpRequestConfig): Promise<HttpResponse<T>> {
     return this.httpClient.POST(url, data);
   }
 
@@ -222,7 +269,7 @@ export class HttpReq {
    * });
    * ```
    */
-  public DELETE(url: string, data?: { headers?: object, body?: object, query?: object }) {
+  public DELETE<T = unknown>(url: string, data?: HttpRequestConfig): Promise<HttpResponse<T>> {
     return this.httpClient.DELETE(url, data);
   }
 
@@ -252,7 +299,7 @@ export class HttpReq {
    * console.log(response.body);    // { id: 123, name: 'Jane Doe', email: 'jane@example.com' }
    * ```
    */
-  public PUT(url: string, data?: { headers?: object, body?: object, query?: object }) {
+  public PUT<T = unknown>(url: string, data?: HttpRequestConfig): Promise<HttpResponse<T>> {
     return this.httpClient.PUT(url, data);
   }
 
@@ -282,7 +329,7 @@ export class HttpReq {
    * console.log(response.body);    // { id: 123, name: 'John Doe', email: 'newemail@example.com' }
    * ```
    */
-  public PATCH(url: string, data?: { headers?: object, body?: object, query?: object }) {
+  public PATCH<T = unknown>(url: string, data?: HttpRequestConfig): Promise<HttpResponse<T>> {
     return this.httpClient.PATCH(url, data);
   }
 
@@ -310,7 +357,7 @@ export class HttpReq {
    * client.isValidRetryErr('ENOTFOUND');       // DNS lookup failed
    * ```
    */
-  public isValidRetryErr(error: any): boolean {
+  public isValidRetryErr(error: string | NetworkError | Error): boolean {
     return this.httpClient.isValidRetryErr(error);
   }
 }
@@ -323,24 +370,24 @@ export class HttpReq {
  */
 interface IHttpClient {
   // eslint-disable-next-line no-unused-vars
-  GET(_url: string, _data?: { headers?: object, query?: object }): Promise<any>;
+  GET<T = unknown>(_url: string, _data?: Partial<HttpRequestConfig>): Promise<HttpResponse<T>>;
   // eslint-disable-next-line no-unused-vars
-  POST(_url: string, _data?: { headers?: object, body?: object, query?: object }): Promise<any>;
+  POST<T = unknown>(_url: string, _data?: HttpRequestConfig): Promise<HttpResponse<T>>;
   // eslint-disable-next-line no-unused-vars
-  PUT(_url: string, _data?: { headers?: object, body?: object, query?: object }): Promise<any>;
+  PUT<T = unknown>(_url: string, _data?: HttpRequestConfig): Promise<HttpResponse<T>>;
   // eslint-disable-next-line no-unused-vars
-  PATCH(_url: string, _data?: { headers?: object, body?: object, query?: object }): Promise<any>;
+  PATCH<T = unknown>(_url: string, _data?: HttpRequestConfig): Promise<HttpResponse<T>>;
   // eslint-disable-next-line no-unused-vars
-  DELETE(_url: string, _data?: { headers?: object, body?: object, query?: object }): Promise<any>;
+  DELETE<T = unknown>(_url: string, _data?: HttpRequestConfig): Promise<HttpResponse<T>>;
   // eslint-disable-next-line no-unused-vars
-  isValidRetryErr(_error: any): boolean;
+  isValidRetryErr(_error: string | NetworkError | Error): boolean;
 }
 
 // Superagent HTTP client implementation
 class SuperagentHttpClient implements IHttpClient {
   // eslint-disable-next-line no-unused-vars
   private logger: (_message: string) => void;
-  private _request: any = null;
+  private _request: typeof superagent | null = null;
 
   // eslint-disable-next-line no-unused-vars
   constructor(logger: (_message: string) => void) {
@@ -349,46 +396,48 @@ class SuperagentHttpClient implements IHttpClient {
 
   // Lazy load superagent - only try to load it when first needed
   // This allows users to only install the HTTP client they actually want
-  private getRequest() {
+  private getRequest(): typeof superagent {
     if (!this._request) {
       try {
-        this._request = require('superagent');
-      } catch (error: any) {
+        // Use dynamic import to avoid bundling superagent unless needed
+        this._request = require('superagent') as typeof superagent;
+      } catch (error: unknown) {
+        const typedError = error as Error;
         throw new Error(
           `superagent is required but not found. Please install it with: npm install superagent\n` +
-          `Original error: ${error.message}`
+          `Original error: ${typedError.message}`
         );
       }
     }
     return this._request;
   }
 
-  public GET(url: string, data?: { headers?: object, query?: object }) {
+  public GET<T = unknown>(url: string, data?: Partial<HttpRequestConfig>): Promise<HttpResponse<T>> {
     const request = this.getRequest();
-    return this.send(request.get, url, data);
+    return this.send<T>(request.get, 'GET', url, data);
   }
 
-  public POST(url: string, data?: { headers?: object, body?: object, query?: object }) {
+  public POST<T = unknown>(url: string, data?: HttpRequestConfig): Promise<HttpResponse<T>> {
     const request = this.getRequest();
-    return this.send(request.post, url, data);
+    return this.send<T>(request.post, 'POST', url, data);
   }
 
-  public DELETE(url: string, data?: { headers?: object, body?: object, query?: object }) {
+  public DELETE<T = unknown>(url: string, data?: HttpRequestConfig): Promise<HttpResponse<T>> {
     const request = this.getRequest();
-    return this.send(request.delete, url, data);
+    return this.send<T>(request.delete, 'DELETE', url, data);
   }
 
-  public PUT(url: string, data?: { headers?: object, body?: object, query?: object }) {
+  public PUT<T = unknown>(url: string, data?: HttpRequestConfig): Promise<HttpResponse<T>> {
     const request = this.getRequest();
-    return this.send(request.put, url, data);
+    return this.send<T>(request.put, 'PUT', url, data);
   }
 
-  public PATCH(url: string, data?: { headers?: object, body?: object, query?: object }) {
+  public PATCH<T = unknown>(url: string, data?: HttpRequestConfig): Promise<HttpResponse<T>> {
     const request = this.getRequest();
-    return this.send(request.patch, url, data);
+    return this.send<T>(request.patch, 'PATCH', url, data);
   }
 
-  public isValidRetryErr(err: string | any): boolean {
+  public isValidRetryErr(err: string | Error): boolean {
     const validRetryErrs = [
       'ECONNREFUSED',
       'ECONNRESET',
@@ -398,62 +447,89 @@ class SuperagentHttpClient implements IHttpClient {
     ];
     
     // Handle both string error codes and error objects
-    const errorCode = typeof err === 'string' ? err : (err?.code ?? err?.message);
+    let errorCode: string;
+    if (typeof err === 'string') {
+      errorCode = err;
+    } else if ('code' in err && typeof err.code === 'string') {
+      errorCode = err.code;
+    } else {
+      errorCode = err.message;
+    }
     return validRetryErrs.includes(errorCode);
   }
 
-  private async send(method: any, url: string, data: any): Promise<any> {
+  // eslint-disable-next-line no-unused-vars
+  private async send<T = unknown>(method: (arg: string) => superagent.SuperAgentRequest, methodName: string, requestUrl: string, data?: HttpRequestConfig): Promise<HttpResponse<T>> {
     let headers: object = {};
-    let body: object;
-    let finalHeaders: any = {};
+    let body: object | undefined;
+    let finalHeaders: Record<string, string> = {};
 
     if (data) {
-      headers = data.headers;
-      finalHeaders = headers || {}; // Ensure finalHeaders is always an object
+      headers = data.headers ?? {};
+      finalHeaders = headers as Record<string, string>; // Ensure finalHeaders is always an object
       body = data.body;
     }
 
     // Use the utility functions for query parameter processing
-    const { baseUrl, mergedQuery } = mergeQueryParameters(url, data?.query);
+    const { baseUrl, mergedQuery } = mergeQueryParameters(requestUrl, data?.query);
     const processedQuery = processQueryObject(mergedQuery);
 
     const request = this.getRequest();
     if (method === request.get) {
-      finalHeaders = { Accept: 'application/json', ...headers };
+      finalHeaders = { Accept: 'application/json', ...finalHeaders };
     }
 
     const startDate = new Date();
 
     for (let attempt = 0; attempt <= 3; attempt++) {
       try {
-        const response = await new Promise((resolve, reject) => {
+        const response = await new Promise<superagent.Response>((resolve, reject) => {
           method(baseUrl)
             .timeout(HTTP_REQUEST.TIMEOUT)
             .set(finalHeaders)
             .send(body)
             .query(processedQuery)
-            .ok((res: any) => res.status < 600)
-            .end((error: any, res: any) => {
+            .ok((res: superagent.Response) => res.status < 600)
+            .end((error: Error | null, res?: superagent.Response) => {
               if (error) {
                 reject(error);
                 return;
               }
-              resolve(res);
+              if (res) {
+                resolve(res);
+              } else {
+                reject(new Error('No response received'));
+              }
             });
         });
 
         // Success - log and return
-        const formattedRsp = logRequest(formatRsp(response), startDate);
-        this.logger(formattedRsp);
-        return response;
+        const formattedResponse: HttpResponse<T> = {
+          status: response.status,
+          body: response.body as T,
+          request: {
+            method: methodName,
+            url: requestUrl,
+            header: finalHeaders,
+            _data: body
+          }
+        };
 
-      } catch (error: any) {
-        if (attempt < 3 && this.isValidRetryErr(error.code ?? error.message)) {
+        const formattedRsp = logRequest(formatRsp(formattedResponse), startDate);
+        this.logger(formattedRsp);
+        return formattedResponse;
+
+      } catch (error: unknown) {
+        const typedError = error as { code?: string; message?: string };
+        if (attempt < 3 && this.isValidRetryErr(typedError.code ?? typedError.message ?? '')) {
           continue;
         }
         throw error; // No more retries or not a retryable error
       }
     }
+    
+    // This should never be reached due to the retry loop, but TypeScript needs it
+    throw new Error('Request failed after all retries');
   }
 }
 
@@ -461,8 +537,7 @@ class SuperagentHttpClient implements IHttpClient {
 class AxiosHttpClient implements IHttpClient {
   // eslint-disable-next-line no-unused-vars
   private logger: (_message: string) => void;
-  private axiosInstance: any;
-  private _axios: any = null;
+  private axiosInstance: AxiosInstance | null = null;
 
   // eslint-disable-next-line no-unused-vars
   constructor(logger: (_message: string) => void) {
@@ -471,49 +546,44 @@ class AxiosHttpClient implements IHttpClient {
 
   // Lazy load axios - only try to load it when first needed
   // This allows users to only install the HTTP client they actually want
-  private getAxios() {
-    if (!this._axios) {
+  private getAxios(): AxiosInstance {
+    if (!this.axiosInstance) {
       try {
-        this._axios = require('axios');
-        this.axiosInstance = this._axios.create({
+        this.axiosInstance = axios.create({
           timeout: HTTP_REQUEST.TIMEOUT,
         });
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const typedError = error as Error;
         throw new Error(
           `axios is required but not found. Please install it with: npm install axios\n` +
-          `Original error: ${error.message}`
+          `Original error: ${typedError.message}`
         );
       }
     }
-    return this._axios;
+    return this.axiosInstance;
   }
 
-  public GET(url: string, data?: { headers?: object, query?: object }) {
-    this.getAxios();
-    return this.send('GET', url, data);
+  public GET<T = unknown>(url: string, data?: Partial<HttpRequestConfig>): Promise<HttpResponse<T>> {
+    return this.send<T>('GET', url, data);
   }
 
-  public POST(url: string, data?: { headers?: object, body?: object, query?: object }) {
-    this.getAxios();
-    return this.send('POST', url, data);
+  public POST<T = unknown>(url: string, data?: HttpRequestConfig): Promise<HttpResponse<T>> {
+    return this.send<T>('POST', url, data);
   }
 
-  public DELETE(url: string, data?: { headers?: object, body?: object, query?: object }) {
-    this.getAxios();
-    return this.send('DELETE', url, data);
+  public DELETE<T = unknown>(url: string, data?: HttpRequestConfig): Promise<HttpResponse<T>> {
+    return this.send<T>('DELETE', url, data);
   }
 
-  public PUT(url: string, data?: { headers?: object, body?: object, query?: object }) {
-    this.getAxios();
-    return this.send('PUT', url, data);
+  public PUT<T = unknown>(url: string, data?: HttpRequestConfig): Promise<HttpResponse<T>> {
+    return this.send<T>('PUT', url, data);
   }
 
-  public PATCH(url: string, data?: { headers?: object, body?: object, query?: object }) {
-    this.getAxios();
-    return this.send('PATCH', url, data);
+  public PATCH<T = unknown>(url: string, data?: HttpRequestConfig): Promise<HttpResponse<T>> {
+    return this.send<T>('PATCH', url, data);
   }
 
-  public isValidRetryErr(error: any): boolean {
+  public isValidRetryErr(error: string | Error | AxiosError): boolean {
     const validRetryErrs = [
       'ECONNREFUSED',
       'ECONNRESET',
@@ -523,18 +593,28 @@ class AxiosHttpClient implements IHttpClient {
     ];
     
     // Handle both string error codes and error objects
-    const errorCode = typeof error === 'string' ? error : (error?.code ?? error?.message);
+    let errorCode: string;
+    if (typeof error === 'string') {
+      errorCode = error;
+    } else if ('code' in error && error.code) {
+      // AxiosError or NodeJS Error with code property
+      errorCode = error.code;
+    } else {
+      // Regular Error object
+      errorCode = error.message;
+    }
     return validRetryErrs.includes(errorCode);
   }
 
-  private async send(method: string, url: string, data: any): Promise<any> {
+  private async send<T = unknown>(method: string, url: string, data?: HttpRequestConfig): Promise<HttpResponse<T>> {
+    const axiosInstance = this.getAxios();
     let headers: object = {};
     let body: object | undefined;
-    let finalHeaders: any = {};
+    let finalHeaders: Record<string, string> = {};
 
     if (data) {
-      headers = data.headers;
-      finalHeaders = headers || {}; // Ensure finalHeaders is always an object
+      headers = data.headers ?? {};
+      finalHeaders = headers as Record<string, string>; // Ensure finalHeaders is always an object
       body = data.body;
     }
 
@@ -543,16 +623,16 @@ class AxiosHttpClient implements IHttpClient {
     const processedQuery = processQueryObject(mergedQuery);
 
     if (method === 'GET') {
-      finalHeaders = { Accept: 'application/json', ...headers };
+      finalHeaders = { Accept: 'application/json', ...finalHeaders };
     }
 
     const startDate = new Date();
     
-    let response: any;
+    let response: AxiosResponse<T> | undefined;
     
     // Configure axios request
-    const config = {
-      method: method.toLowerCase(),
+    const config: AxiosRequestConfig = {
+      method: method.toLowerCase() as 'get' | 'post' | 'put' | 'patch' | 'delete',
       url: baseUrl,
       headers: finalHeaders,
       data: body,
@@ -563,19 +643,23 @@ class AxiosHttpClient implements IHttpClient {
     // Retry logic
     for (let attempt = 0; attempt <= 3; attempt++) {
       try {
-        response = await this.axiosInstance.request(config);
+        response = await axiosInstance.request<T>(config);
         break;
-      } catch (error: any) {
-        if (attempt < 3 && this.isValidRetryErr(error)) {
+      } catch (error: unknown) {
+        if (attempt < 3 && this.isValidRetryErr(error as AxiosError)) {
           continue;
         }
         throw error; // No more retries or not a retryable error
       }
     }
 
-    const formattedResponse = {
-      status: response!.status,
-      body: response!.data,
+    if (!response) {
+      throw new Error('Request failed: no response received');
+    }
+
+    const formattedResponse: HttpResponse<T> = {
+      status: response.status,
+      body: response.data,
       request: {
         method: method,
         url: url,
@@ -599,21 +683,38 @@ class AxiosHttpClient implements IHttpClient {
  */
 
 /**
+ * Interface for objects that may contain sensitive data fields
+ */
+interface SensitiveDataObject {
+  access_key?: string;
+  password?: string;
+  [key: string]: unknown;
+}
+
+/**
  * Obfuscates sensitive data in request objects for logging purposes.
  * @param args - Object that may contain sensitive fields
  * @returns Object with sensitive fields replaced with placeholder text
  */
-function obfuscate(args: any) {
-  const fixedArgs: any = args;
+function obfuscate<T extends SensitiveDataObject>(args: T): T {
+  const fixedArgs: T = { ...args };
   if (args.access_key) {
-    fixedArgs.access_key = 'ACCESS KEY HIDDEN';
+    (fixedArgs as SensitiveDataObject).access_key = 'ACCESS KEY HIDDEN';
   }
 
   if (args.password) {
-    fixedArgs.password = 'PASSWORD HIDDEN';
+    (fixedArgs as SensitiveDataObject).password = 'PASSWORD HIDDEN';
   }
 
   return fixedArgs;
+}
+
+/**
+ * Interface for formatted request/response log objects
+ */
+interface FormattedLogObject {
+  req: string;
+  rsp: string;
 }
 
 /**
@@ -622,9 +723,9 @@ function obfuscate(args: any) {
  * @param startDate - Request start timestamp
  * @returns Formatted log string with timing
  */
-function logRequest(reqObj: any, startDate: any): string {
-  const endDate: any = new Date();
-  const msec: number = Math.abs(endDate - startDate);
+function logRequest(reqObj: FormattedLogObject, startDate: Date): string {
+  const endDate = new Date();
+  const msec: number = Math.abs(endDate.getTime() - startDate.getTime());
 
   const output = [
     `::: ${startDate.toISOString()} :::`,
@@ -636,14 +737,28 @@ function logRequest(reqObj: any, startDate: any): string {
 }
 
 /**
+ * Interface for response objects used in logging
+ */
+interface LoggableResponse {
+  status: number;
+  body: unknown;
+  request: {
+    method: string;
+    url: string;
+    header?: Record<string, unknown>;
+    _data?: unknown;
+  };
+}
+
+/**
  * Formats a response object for logging with header obfuscation.
  * @param res - Response object to format
  * @returns Object with formatted request and response strings
  */
-function formatRsp(res: any) {
-  let data: any;
+function formatRsp(res: LoggableResponse): FormattedLogObject {
+  let data: string;
 
-  const output: any = {};
+  const output: FormattedLogObject = { req: '', rsp: '' };
   const regexBracesQuotesCommas = /({\n)|(")|(,)|(\n})/g;
   const regexBasicAuthToken = /Authorization:\s*Basic.*/gi;
   const regexBearerAuthToken = /Authorization:\s*Bearer.*/gi;
@@ -673,7 +788,7 @@ function formatRsp(res: any) {
   if (res.request._data) {
     data = `${JSON.stringify(
        
-      obfuscate(res.request._data),
+      obfuscate(res.request._data as SensitiveDataObject),
       null,
       4,
     )}`;
@@ -694,11 +809,11 @@ function formatRsp(res: any) {
  * @param options - Optional parsing configuration
  * @returns Object with parsed key-value pairs
  */
-function processKeyPairs(str: string, options?: { delimiter: string, assignmentOp: string }): any {
+function processKeyPairs(str: string, options?: { delimiter: string, assignmentOp: string }): Record<string, string> {
   const delimiter: string = options ? options.delimiter : '&';
   const assignmentOp: string = options ? options.assignmentOp : '=';
   const pairs: string[] = str.split(delimiter);
-  const resultMap = new Map();
+  const resultMap = new Map<string, string>();
 
   pairs.forEach((pairStr: string) => {
     const pairAr: string[] = pairStr.split(assignmentOp);
@@ -714,9 +829,9 @@ function processKeyPairs(str: string, options?: { delimiter: string, assignmentO
  * @param queryObj - Query object to merge (optional)
  * @returns Object containing { baseUrl, mergedQuery }
  */
-function mergeQueryParameters(url: string, queryObj?: object): { baseUrl: string, mergedQuery: any } {
+function mergeQueryParameters(url: string, queryObj?: object): { baseUrl: string, mergedQuery: Record<string, unknown> } {
   const [baseUrl, queryStr] = url.split('?');
-  let urlQuery: any = {};
+  let urlQuery: Record<string, string> = {};
 
   // Parse existing URL query parameters
   if (queryStr) {
@@ -735,12 +850,12 @@ function mergeQueryParameters(url: string, queryObj?: object): { baseUrl: string
  * @param queryObj - Query object to process
  * @returns Processed query object suitable for HTTP client libraries
  */
-function processQueryObject(queryObj: any): any {
+function processQueryObject(queryObj: Record<string, unknown> | null | undefined): Record<string, string> {
   if (!queryObj || typeof queryObj !== 'object') {
     return {};
   }
 
-  const processedQuery: any = {};
+  const processedQuery: Record<string, string> = {};
 
   Object.keys(queryObj).forEach(key => {
     const value = queryObj[key];

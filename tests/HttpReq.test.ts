@@ -3,6 +3,47 @@ import { HttpReq, HttpClientType } from '../src/HttpReq';
 import { responseFixtures } from './fixtures/responses';
 import { TestLogger } from './TestLogger';
 
+// Test response interfaces for type safety
+interface TestSuccessResponse {
+  message: string;
+  data: {
+    name: string;
+    email?: string;
+  };
+}
+
+interface TestCreateResponse {
+  message: string;
+  id: number;
+}
+
+interface TestUsersResponse {
+  users: Array<{ id: number; name: string }>;
+}
+
+interface TestErrorResponse {
+  error: string;
+}
+
+interface TestRetryResponse {
+  message: string;
+  retriesNeeded: number;
+}
+
+interface TestRecoveryResponse {
+  quickRecovery?: boolean;
+  maxRetriesUsed?: boolean;
+}
+
+interface TestSuccessFlag {
+  success: boolean;
+  maxRetriesUsed?: boolean;
+}
+
+interface TestDataResponse {
+  data: string;
+}
+
 describe('HttpReq - Constructor Options', () => {
   it('should use all defaults when no options provided', () => {
     const httpReq = new HttpReq();
@@ -79,7 +120,7 @@ describe.each([
         .get('/users')
         .reply(responseFixtures.success.status, responseFixtures.success.body);
 
-      const response = await httpReq.GET(`${testBaseUrl}/users`);
+      const response = await httpReq.GET<TestSuccessResponse>(`${testBaseUrl}/users`);
 
       expect(response.status).toBe(200);
       expect(response.body.message).toBe('Success');
@@ -94,7 +135,7 @@ describe.each([
         .post('/users', requestBody)
         .reply(responseFixtures.created.status, responseFixtures.created.body);
 
-      const response = await httpReq.POST(`${testBaseUrl}/users`, { 
+      const response = await httpReq.POST<TestCreateResponse>(`${testBaseUrl}/users`, { 
         headers: {}, 
         body: requestBody 
       });
@@ -112,7 +153,7 @@ describe.each([
         .put('/users/1', requestBody)
         .reply(responseFixtures.success.status, responseFixtures.success.body);
 
-      const response = await httpReq.PUT(`${testBaseUrl}/users/1`, { 
+      const response = await httpReq.PUT<TestSuccessResponse>(`${testBaseUrl}/users/1`, { 
         headers: {}, 
         body: requestBody 
       });
@@ -129,7 +170,7 @@ describe.each([
         .patch('/users/1', requestBody)
         .reply(responseFixtures.success.status, responseFixtures.success.body);
 
-      const response = await httpReq.PATCH(`${testBaseUrl}/users/1`, { 
+      const response = await httpReq.PATCH<TestSuccessResponse>(`${testBaseUrl}/users/1`, { 
         headers: {}, 
         body: requestBody 
       });
@@ -155,7 +196,7 @@ describe.each([
         .get('/simple')
         .reply(responseFixtures.success.status, responseFixtures.success.body);
 
-      const response = await httpReq.GET(`${testBaseUrl}/simple`);
+      const response = await httpReq.GET<TestSuccessResponse>(`${testBaseUrl}/simple`);
 
       expect(response.status).toBe(200);
       expect(response.body.message).toBe('Success');
@@ -188,7 +229,7 @@ describe.each([
         .query({ page: '1', limit: '10', active: 'true' })
         .reply(responseFixtures.userList.status, responseFixtures.userList.body);
 
-      const response = await httpReq.GET(`${testBaseUrl}/users?page=1&limit=10&active=true`);
+      const response = await httpReq.GET<TestUsersResponse>(`${testBaseUrl}/users?page=1&limit=10&active=true`);
 
       expect(response.status).toBe(200);
       expect(response.body.users).toHaveLength(3);
@@ -201,7 +242,7 @@ describe.each([
         .query({ page: '1', limit: '10', active: 'true' })
         .reply(responseFixtures.userList.status, responseFixtures.userList.body);
 
-      const response = await httpReq.GET(`${testBaseUrl}/users`, { 
+      const response = await httpReq.GET<TestUsersResponse>(`${testBaseUrl}/users`, { 
         query: { page: '1', limit: '10', active: 'true' } 
       });
 
@@ -513,7 +554,7 @@ describe.each([
         .get('/error')
         .reply(404, { error: 'Not found' });
 
-      const response = await httpReq.GET(`${testBaseUrl}/error`);
+      const response = await httpReq.GET<TestErrorResponse>(`${testBaseUrl}/error`);
       
       expect(response.status).toBe(404);
       expect(response.body.error).toBe('Not found');
@@ -525,7 +566,7 @@ describe.each([
         .get('/server-error')
         .reply(500, { error: 'Internal server error' });
 
-      const response = await httpReq.GET(`${testBaseUrl}/server-error`);
+      const response = await httpReq.GET<TestErrorResponse>(`${testBaseUrl}/server-error`);
       
       expect(response.status).toBe(500);
       expect(response.body.error).toBe('Internal server error');
@@ -554,7 +595,7 @@ describe.each([
           .get('/http-error')
           .reply(500, { error: 'Server error' });
 
-        const response = await httpReq.GET('https://postman-echo.com/http-error');
+        const response = await httpReq.GET<TestErrorResponse>('https://postman-echo.com/http-error');
         
         expect(response.status).toBe(500);
         expect(response.body.error).toBe('Server error');
@@ -566,7 +607,7 @@ describe.each([
           .get('/not-found')
           .reply(404, { error: 'Not found' });
 
-        const response = await httpReq.GET('https://postman-echo.com/not-found');
+        const response = await httpReq.GET<TestErrorResponse>('https://postman-echo.com/not-found');
         
         expect(response.status).toBe(404);
         expect(response.body.error).toBe('Not found');
@@ -581,7 +622,7 @@ describe.each([
         // Configure server to fail 2 times, then succeed
         testServer.failThenSucceed(2, { message: 'Success after retries', retriesNeeded: 2 });
         
-        const response = await httpReq.GET(`${testServer.getUrl()}/retry-test`);
+        const response = await httpReq.GET<TestRetryResponse>(`${testServer.getUrl()}/retry-test`);
         
         expect(response.status).toBe(200);
         expect(response.body.message).toBe('Success after retries');
@@ -607,7 +648,7 @@ describe.each([
         // Configure server to fail once, then succeed
         testServer.failThenSucceed(1, { quickRecovery: true });
         
-        const response = await httpReq.GET(`${testServer.getUrl()}/quick-recovery`);
+        const response = await httpReq.GET<TestRecoveryResponse>(`${testServer.getUrl()}/quick-recovery`);
         
         expect(response.status).toBe(200);
         expect(response.body.quickRecovery).toBe(true);
@@ -620,7 +661,7 @@ describe.each([
         // Configure server to fail 3 times, then succeed (uses all retries)
         testServer.failThenSucceed(3, { maxRetriesUsed: true });
         
-        const response = await httpReq.GET(`${testServer.getUrl()}/max-retries`);
+        const response = await httpReq.GET<TestRecoveryResponse>(`${testServer.getUrl()}/max-retries`);
         
         expect(response.status).toBe(200);
         expect(response.body.maxRetriesUsed).toBe(true);
@@ -636,7 +677,7 @@ describe.each([
           { status: 200, body: { attempt: 1, success: true } }  // Retry succeeds
         ]);
         
-        const response = await httpReq.GET(`${testServer.getUrl()}/intermittent`);
+        const response = await httpReq.GET<TestSuccessFlag>(`${testServer.getUrl()}/intermittent`);
         
         expect(response.status).toBe(200);
         expect(response.body.success).toBe(true);
@@ -744,7 +785,7 @@ describe.each([
         .reply(200, { success: true });
 
       // Test URL with existing query params that get merged with query object
-      const response = await httpReq.GET(`${testBaseUrl}/search?existing=value&page=1`, {
+      const response = await httpReq.GET<TestSuccessFlag>(`${testBaseUrl}/search?existing=value&page=1`, {
         query: { page: 2, active: true } // should override page=1 with page=2
       });
 
@@ -760,7 +801,7 @@ describe.each([
         .reply(200, { success: true });
 
       // Test URL with existing query parameter that gets merged
-      const response = await httpReq.GET(`${testBaseUrl}/search?filter=test`, {
+      const response = await httpReq.GET<TestSuccessFlag>(`${testBaseUrl}/search?filter=test`, {
         query: { sort: 'name' }
       });
 
@@ -776,7 +817,7 @@ describe.each([
         .reply(200, { data: 'test' });
 
       // Test URL with multiple existing query parameters
-      const response = await httpReq.GET(`${testBaseUrl}/api?a=1&b=2`, {
+      const response = await httpReq.GET<TestDataResponse>(`${testBaseUrl}/api?a=1&b=2`, {
         query: { c: 3 }
       });
 
@@ -790,7 +831,7 @@ describe.each([
         .get('/api')
         .reply(200, { data: 'test' });
 
-      const response = await httpReq.GET(`${testBaseUrl}/api`, {
+      const response = await httpReq.GET<TestDataResponse>(`${testBaseUrl}/api`, {
         query: null as any
       });
 
@@ -804,7 +845,7 @@ describe.each([
         .get('/api')
         .reply(200, { data: 'test' });
 
-      const response = await httpReq.GET(`${testBaseUrl}/api`, {
+      const response = await httpReq.GET<TestDataResponse>(`${testBaseUrl}/api`, {
         query: undefined
       });
 

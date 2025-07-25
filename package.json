@@ -1,0 +1,54 @@
+{
+  "name": "http_request",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc --project .",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "demo": "node bin/demo.js",
+    "lint": "eslint src tests --ext .ts",
+    "lint:fix": "eslint src tests --ext .ts --fix",
+    "lint:check": "eslint src tests --ext .ts --max-warnings 0"
+  },
+  "author": "Woody Beverley",
+  "license": "ISC",
+  "dependencies": {
+    "@types/node": "^20.11.30",
+    "@types/superagent": "^8.1.6",
+    "axios": "^1.11.0",
+    "superagent": "^8.1.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.32.0",
+    "@types/jest": "^30.0.0",
+    "@types/nock": "^10.0.3",
+    "@typescript-eslint/eslint-plugin": "^8.38.0",
+    "@typescript-eslint/parser": "^8.38.0",
+    "eslint": "^9.32.0",
+    "eslint-plugin-jest": "^28.14.0",
+    "jest": "^30.0.5",
+    "nock": "^14.0.0",
+    "ts-jest": "^29.4.0"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "roots": ["<rootDir>/tests"],
+    "testMatch": ["<rootDir>/tests/**/*.test.ts"],
+    "transform": {
+      "^.+\\.ts$": "ts-jest"
+    },
+    "collectCoverageFrom": [
+      "src/**/*.ts",
+      "!src/**/*.d.ts"
+    ],
+    "moduleFileExtensions": ["ts", "js", "json", "node"],
+    "testTimeout": 10000,
+    "testPathIgnorePatterns": ["/node_modules/", "/bin/", "/coverage/"]
+  }
+}

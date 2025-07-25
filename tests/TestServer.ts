@@ -3,7 +3,7 @@ import { AddressInfo } from 'net';
 
 interface TestResponse {
   status?: number;
-  body?: any;
+  body?: unknown;
   error?: string;
   delay?: number;
 }
@@ -29,7 +29,7 @@ export class TestServer {
 
     const sendResponse = () => {
       const status = response.status ?? 200;
-      const body = response.body ?? { success: true, requestNumber: requestIndex + 1 };
+      const body: unknown = response.body ?? { success: true, requestNumber: requestIndex + 1 };
       
       res.writeHead(status, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(body));
@@ -83,7 +83,7 @@ export class TestServer {
   }
 
   // Helper methods for common test scenarios
-  failThenSucceed(failures: number, successBody?: any): void {
+  failThenSucceed(failures: number, successBody?: unknown): void {
     const responses: TestResponse[] = [];
     
     // Add failure responses (connection drops)

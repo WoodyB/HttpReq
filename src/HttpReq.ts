@@ -17,6 +17,7 @@ export enum HttpClientType {
  */
 export interface HttpReqOptions {
   /** Custom logger function. Defaults to console.log if not provided. */
+  // eslint-disable-next-line no-unused-vars
   logger?: (_message: string) => void;
   /** HTTP client type to use. Defaults to AXIOS if not provided. */
   clientType?: HttpClientType;
@@ -69,6 +70,7 @@ export interface HttpReqOptions {
  * ```
  */
 export class HttpReq {
+  // eslint-disable-next-line no-unused-vars
   private logger: (message: string) => void;
   private clientType: HttpClientType;
   private httpClient: IHttpClient;
@@ -320,19 +322,27 @@ export class HttpReq {
  * @internal
  */
 interface IHttpClient {
+  // eslint-disable-next-line no-unused-vars
   GET(_url: string, _data?: { headers?: object, query?: object }): Promise<any>;
+  // eslint-disable-next-line no-unused-vars
   POST(_url: string, _data?: { headers?: object, body?: object, query?: object }): Promise<any>;
+  // eslint-disable-next-line no-unused-vars
   PUT(_url: string, _data?: { headers?: object, body?: object, query?: object }): Promise<any>;
+  // eslint-disable-next-line no-unused-vars
   PATCH(_url: string, _data?: { headers?: object, body?: object, query?: object }): Promise<any>;
+  // eslint-disable-next-line no-unused-vars
   DELETE(_url: string, _data?: { headers?: object, body?: object, query?: object }): Promise<any>;
+  // eslint-disable-next-line no-unused-vars
   isValidRetryErr(_error: any): boolean;
 }
 
 // Superagent HTTP client implementation
 class SuperagentHttpClient implements IHttpClient {
+  // eslint-disable-next-line no-unused-vars
   private logger: (_message: string) => void;
   private _request: any = null;
 
+  // eslint-disable-next-line no-unused-vars
   constructor(logger: (_message: string) => void) {
     this.logger = logger;
   }
@@ -449,10 +459,12 @@ class SuperagentHttpClient implements IHttpClient {
 
 // Axios HTTP client implementation
 class AxiosHttpClient implements IHttpClient {
+  // eslint-disable-next-line no-unused-vars
   private logger: (_message: string) => void;
   private axiosInstance: any;
   private _axios: any = null;
 
+  // eslint-disable-next-line no-unused-vars
   constructor(logger: (_message: string) => void) {
     this.logger = logger;
   }

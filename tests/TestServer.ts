@@ -1,5 +1,6 @@
 import * as http from 'http';
 import { AddressInfo } from 'net';
+import * as url from 'url';
 
 interface TestResponse {
   status?: number;
@@ -8,11 +9,28 @@ interface TestResponse {
   delay?: number;
 }
 
+interface RouteResponse {
+  method: string;
+  path: string;
+  response: TestResponse;
+}
+
+interface ReceivedRequest {
+  method: string;
+  url: string;
+  path: string;
+  query: Record<string, string>;
+  headers: http.IncomingHttpHeaders;
+  body?: unknown;
+}
+
 export class TestServer {
   private server: http.Server;
   private port: number = 0;
   private requestCount: number = 0;
   private responses: TestResponse[] = [];
+  private routeResponses: RouteResponse[] = [];
+  private receivedRequests: ReceivedRequest[] = [];
 
   constructor() {
     this.server = http.createServer(this.handleRequest.bind(this));
@@ -20,26 +38,62 @@ export class TestServer {
 
   private handleRequest(req: http.IncomingMessage, res: http.ServerResponse) {
     const requestIndex = this.requestCount++;
-    const response = this.responses[requestIndex] || { status: 200, body: { success: true } };
+    const parsedUrl = url.parse(req.url ?? '', true);
+    const method = req.method ?? 'GET';
+    const path = parsedUrl.pathname ?? '/';
 
-    if (response.error) {
-      req.socket.destroy();
-      return;
-    }
+    // Collect request body for POST/PUT/PATCH
+    let body = '';
+    req.on('data', (chunk: Buffer) => {
+      body += chunk.toString();
+    });
 
-    const sendResponse = () => {
-      const status = response.status ?? 200;
-      const body: unknown = response.body ?? { success: true, requestNumber: requestIndex + 1 };
-      
-      res.writeHead(status, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(body));
-    };
+    req.on('end', () => {
+      let parsedBody: unknown;
+      try {
+        parsedBody = body ? JSON.parse(body) : undefined;
+      } catch {
+        parsedBody = body;
+      }
 
-    if (response.delay) {
-      setTimeout(sendResponse, response.delay);
-    } else {
-      sendResponse();
-    }
+      // Store the received request
+      this.receivedRequests.push({
+        method,
+        url: req.url ?? '',
+        path,
+        query: parsedUrl.query as Record<string, string> ?? {},
+        headers: req.headers,
+        body: parsedBody
+      });
+
+      // Look for route-specific response first
+      const routeResponse = this.routeResponses.find(
+        route => route.method === method && route.path === path
+      );
+
+      const response = routeResponse?.response ?? 
+                      this.responses[requestIndex] ?? 
+                      { status: 200, body: { success: true } };
+
+      if (response.error) {
+        req.socket.destroy();
+        return;
+      }
+
+      const sendResponse = () => {
+        const status = response.status ?? 200;
+        const responseBody: unknown = response.body ?? { success: true, requestNumber: requestIndex + 1 };
+        
+        res.writeHead(status, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(responseBody));
+      };
+
+      if (response.delay) {
+        setTimeout(sendResponse, response.delay);
+      } else {
+        sendResponse();
+      }
+    });
   }
 
   start(): Promise<number> {
@@ -75,11 +129,64 @@ export class TestServer {
   reset(): void {
     this.requestCount = 0;
     this.responses = [];
+    this.routeResponses = [];
+    this.receivedRequests = [];
   }
 
   // Configure how the server should respond to requests
   setResponses(responses: TestResponse[]): void {
     this.responses = responses;
+  }
+
+  // Configure response for specific route (like nock)
+  setRouteResponse(method: string, path: string, response: TestResponse): void {
+    this.routeResponses.push({ method, path, response });
+  }
+
+  // Get all received requests for verification
+  getReceivedRequests(): ReceivedRequest[] {
+    return [...this.receivedRequests];
+  }
+
+  // Get the last received request
+  getLastRequest(): ReceivedRequest | undefined {
+    return this.receivedRequests[this.receivedRequests.length - 1];
+  }
+
+  // Helper method to check if a header was received
+  wasHeaderReceived(headerName: string, expectedValue?: string): boolean {
+    const lastRequest = this.getLastRequest();
+    if (!lastRequest) {
+      return false;
+    }
+    
+    const headerKey = Object.keys(lastRequest.headers).find(
+      key => key.toLowerCase() === headerName.toLowerCase()
+    );
+    
+    if (!headerKey) {
+      return false;
+    }
+    
+    if (expectedValue !== undefined) {
+      return lastRequest.headers[headerKey] === expectedValue;
+    }
+    
+    return true;
+  }
+
+  // Helper method to check query parameters
+  wasQueryParamReceived(paramName: string, expectedValue?: string): boolean {
+    const lastRequest = this.getLastRequest();
+    if (!lastRequest) {
+      return false;
+    }
+    
+    if (expectedValue !== undefined) {
+      return lastRequest.query[paramName] === expectedValue;
+    }
+    
+    return paramName in lastRequest.query;
   }
 
   // Helper methods for common test scenarios

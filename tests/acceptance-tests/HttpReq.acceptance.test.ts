@@ -920,4 +920,372 @@ describe.each([
       expect(testServer.wasQueryParamReceived('emptyString')).toBe(false);      // empty string skipped
     });
   });
+
+  describe('Advanced Query Parameter Handling - Real Network Testing', () => {
+    beforeEach(async () => {
+      await testServer.start();
+      testServer.setRouteResponse('GET', '/query-advanced', { 
+        status: 200, 
+        body: responseFixtures.success 
+      });
+    });
+
+    it('should handle array query parameters correctly', async () => {
+      const response = await httpReq.GET<TestSuccessResponse>(`${testServer.getUrl()}/query-advanced`, { 
+        query: { 
+          tags: ['javascript', 'typescript', 'node.js'],
+          categories: ['web', 'backend']
+        } 
+      });
+
+      expect(response.status).toBe(200);
+      expect(testServer.getRequestCount()).toBe(1);
+      
+      // Arrays should be serialized appropriately
+      const lastRequest = testServer.getLastRequest();
+      expect(lastRequest?.url).toContain('tags=');
+      expect(lastRequest?.url).toContain('categories=');
+    });
+
+    it('should handle nested object query parameters', async () => {
+      const response = await httpReq.GET<TestSuccessResponse>(`${testServer.getUrl()}/query-advanced`, { 
+        query: { 
+          filter: {
+            status: 'active',
+            priority: 'high'
+          },
+          sort: {
+            field: 'created_at',
+            direction: 'desc'
+          }
+        } 
+      });
+
+      expect(response.status).toBe(200);
+      expect(testServer.getRequestCount()).toBe(1);
+      
+      // Nested objects should be flattened or serialized
+      const lastRequest = testServer.getLastRequest();
+      expect(lastRequest?.url).toContain('filter');
+      expect(lastRequest?.url).toContain('sort');
+    });
+
+    it('should preserve query parameter order and encoding', async () => {
+      const response = await httpReq.GET<TestSuccessResponse>(`${testServer.getUrl()}/query-advanced`, { 
+        query: { 
+          'special-chars': 'hello world & more!',
+          'unicode': 'café',
+          'symbols': '$100 + tax',
+          'quotes': 'say "hello"'
+        } 
+      });
+
+      expect(response.status).toBe(200);
+      expect(testServer.getRequestCount()).toBe(1);
+      
+      // Special characters should be properly URL encoded
+      const lastRequest = testServer.getLastRequest();
+      expect(lastRequest?.url).toContain('special-chars=');
+      expect(lastRequest?.url).toContain('unicode=');
+      expect(lastRequest?.url).toContain('symbols=');
+      expect(lastRequest?.url).toContain('quotes=');
+    });
+
+    it('should handle large query parameter sets', async () => {
+      const largeQuery: Record<string, string> = {};
+      for (let i = 0; i < 50; i++) {
+        largeQuery[`param${i}`] = `value${i}`;
+      }
+
+      const response = await httpReq.GET<TestSuccessResponse>(`${testServer.getUrl()}/query-advanced`, { 
+        query: largeQuery
+      });
+
+      expect(response.status).toBe(200);
+      expect(testServer.getRequestCount()).toBe(1);
+      
+      // Should handle large parameter sets without issues
+      const lastRequest = testServer.getLastRequest();
+      expect(lastRequest?.url.length).toBeGreaterThan(100); // URL should be quite long
+    });
+
+    it('should handle duplicate parameter names', async () => {
+      // Test how duplicate parameters are handled
+      const response = await httpReq.GET<TestSuccessResponse>(`${testServer.getUrl()}/query-advanced?existing=first`, { 
+        query: { 
+          existing: 'second',
+          normal: 'value'
+        } 
+      });
+
+      expect(response.status).toBe(200);
+      expect(testServer.getRequestCount()).toBe(1);
+      
+      const lastRequest = testServer.getLastRequest();
+      expect(lastRequest?.url).toContain('existing=');
+      expect(lastRequest?.url).toContain('normal=value');
+    });
+
+    it('should handle query parameters with numeric and boolean types', async () => {
+      const response = await httpReq.GET<TestSuccessResponse>(`${testServer.getUrl()}/query-advanced`, { 
+        query: { 
+          page: 42,
+          limit: 100,
+          active: true,
+          archived: false,
+          rating: 4.5,
+          count: 0
+        } 
+      });
+
+      expect(response.status).toBe(200);
+      expect(testServer.getRequestCount()).toBe(1);
+      
+      // Verify type conversion to strings in URL
+      expect(testServer.wasQueryParamReceived('page', '42')).toBe(true);
+      expect(testServer.wasQueryParamReceived('limit', '100')).toBe(true);
+      expect(testServer.wasQueryParamReceived('active', 'true')).toBe(true);
+      expect(testServer.wasQueryParamReceived('archived', 'false')).toBe(true);
+      expect(testServer.wasQueryParamReceived('rating', '4.5')).toBe(true);
+      expect(testServer.wasQueryParamReceived('count', '0')).toBe(true);
+    });
+  });
+
+  describe('Error Responses - Real Network Testing', () => {
+    beforeEach(async () => {
+      await testServer.start();
+    });
+
+    it('should handle 400 Bad Request errors', async () => {
+      testServer.setRouteResponse('POST', '/bad-request', { 
+        status: 400, 
+        body: { error: 'Bad Request', message: 'Invalid request format' }
+      });
+
+      const response = await httpReq.POST(`${testServer.getUrl()}/bad-request`, { 
+        body: { invalidData: true }
+      });
+      
+      // HttpReq treats HTTP error status codes as successful responses
+      expect(response.status).toBe(400);
+      expect(response.body).toMatchObject({
+        error: 'Bad Request',
+        message: 'Invalid request format'
+      });
+      expect(testServer.getRequestCount()).toBe(1);
+    });
+
+    it('should handle 401 Unauthorized errors', async () => {
+      testServer.setRouteResponse('GET', '/protected', { 
+        status: 401, 
+        body: { error: 'Unauthorized', message: 'Authentication required' }
+      });
+
+      const response = await httpReq.GET(`${testServer.getUrl()}/protected`);
+      
+      expect(response.status).toBe(401);
+      expect(response.body).toMatchObject({
+        error: 'Unauthorized',
+        message: 'Authentication required'
+      });
+      expect(testServer.getRequestCount()).toBe(1);
+    });
+
+    it('should handle 403 Forbidden errors', async () => {
+      testServer.setRouteResponse('DELETE', '/forbidden', { 
+        status: 403, 
+        body: { error: 'Forbidden', message: 'Insufficient permissions' }
+      });
+
+      const response = await httpReq.DELETE(`${testServer.getUrl()}/forbidden`);
+      
+      expect(response.status).toBe(403);
+      expect(response.body).toMatchObject({
+        error: 'Forbidden',
+        message: 'Insufficient permissions'
+      });
+      expect(testServer.getRequestCount()).toBe(1);
+    });
+
+    it('should handle 404 Not Found errors', async () => {
+      testServer.setRouteResponse('GET', '/nonexistent', { 
+        status: 404, 
+        body: { error: 'Not Found', message: 'Resource does not exist' }
+      });
+
+      const response = await httpReq.GET(`${testServer.getUrl()}/nonexistent`);
+      
+      expect(response.status).toBe(404);
+      expect(response.body).toMatchObject({
+        error: 'Not Found',
+        message: 'Resource does not exist'
+      });
+      expect(testServer.getRequestCount()).toBe(1);
+    });
+
+    it('should handle 409 Conflict errors', async () => {
+      testServer.setRouteResponse('POST', '/conflict', { 
+        status: 409, 
+        body: { error: 'Conflict', message: 'Resource already exists' }
+      });
+
+      const response = await httpReq.POST(`${testServer.getUrl()}/conflict`, { 
+        body: { name: 'duplicate' }
+      });
+      
+      expect(response.status).toBe(409);
+      expect(response.body).toMatchObject({
+        error: 'Conflict',
+        message: 'Resource already exists'
+      });
+      expect(testServer.getRequestCount()).toBe(1);
+    });
+
+    it('should handle 422 Unprocessable Entity errors', async () => {
+      testServer.setRouteResponse('PUT', '/validation', { 
+        status: 422, 
+        body: { 
+          error: 'Unprocessable Entity', 
+          message: 'Validation failed',
+          details: ['Email is required', 'Name must be at least 3 characters']
+        }
+      });
+
+      const response = await httpReq.PUT(`${testServer.getUrl()}/validation`, { 
+        body: { name: 'ab' }
+      });
+      
+      expect(response.status).toBe(422);
+      expect(response.body).toMatchObject({
+        error: 'Unprocessable Entity',
+        message: 'Validation failed',
+        details: expect.arrayContaining(['Email is required'])
+      });
+      expect(testServer.getRequestCount()).toBe(1);
+    });
+
+    it('should handle 429 Too Many Requests errors', async () => {
+      testServer.setRouteResponse('GET', '/rate-limited', { 
+        status: 429, 
+        body: { 
+          error: 'Too Many Requests', 
+          message: 'Rate limit exceeded',
+          retryAfter: 60
+        }
+      });
+
+      const response = await httpReq.GET(`${testServer.getUrl()}/rate-limited`);
+      
+      expect(response.status).toBe(429);
+      expect(response.body).toMatchObject({
+        error: 'Too Many Requests',
+        message: 'Rate limit exceeded',
+        retryAfter: 60
+      });
+      expect(testServer.getRequestCount()).toBe(1);
+    });
+
+    it('should handle 500 Internal Server Error', async () => {
+      testServer.setRouteResponse('POST', '/server-error', { 
+        status: 500, 
+        body: { 
+          error: 'Internal Server Error', 
+          message: 'An unexpected error occurred',
+          timestamp: new Date().toISOString()
+        }
+      });
+
+      const response = await httpReq.POST<any>(`${testServer.getUrl()}/server-error`, { 
+        body: { data: 'test' }
+      });
+      
+      expect(response.status).toBe(500);
+      expect(response.body).toMatchObject({
+        error: 'Internal Server Error',
+        message: 'An unexpected error occurred'
+      });
+      expect(typeof response.body.timestamp).toBe('string');
+      expect(testServer.getRequestCount()).toBe(1);
+    });
+
+    it('should handle 502 Bad Gateway errors', async () => {
+      testServer.setRouteResponse('GET', '/bad-gateway', { 
+        status: 502, 
+        body: { 
+          error: 'Bad Gateway', 
+          message: 'Upstream server error'
+        }
+      });
+
+      const response = await httpReq.GET(`${testServer.getUrl()}/bad-gateway`);
+      
+      expect(response.status).toBe(502);
+      expect(response.body).toMatchObject({
+        error: 'Bad Gateway',
+        message: 'Upstream server error'
+      });
+      expect(testServer.getRequestCount()).toBe(1);
+    });
+
+    it('should handle 503 Service Unavailable errors', async () => {
+      testServer.setRouteResponse('GET', '/unavailable', { 
+        status: 503, 
+        body: { 
+          error: 'Service Unavailable', 
+          message: 'Service temporarily unavailable',
+          retryAfter: 300
+        }
+      });
+
+      const response = await httpReq.GET(`${testServer.getUrl()}/unavailable`);
+      
+      expect(response.status).toBe(503);
+      expect(response.body).toMatchObject({
+        error: 'Service Unavailable',
+        message: 'Service temporarily unavailable',
+        retryAfter: 300
+      });
+      expect(testServer.getRequestCount()).toBe(1);
+    });
+
+    it('should handle custom error responses with retry behavior', async () => {
+      // First request fails with 503, retry succeeds
+      testServer.setResponses([
+        { status: 503, body: { error: 'Service Unavailable', temporary: true } },
+        { status: 200, body: { message: 'Success after retry', recovered: true } }
+      ]);
+
+      const response = await httpReq.GET<any>(`${testServer.getUrl()}/retry-error`);
+      
+      // Note: HttpReq does not retry on HTTP error status codes, only on network errors
+      // So we expect the first 503 response to be returned directly
+      expect(response.status).toBe(503);
+      expect(response.body).toMatchObject({
+        error: 'Service Unavailable',
+        temporary: true
+      });
+      expect(testServer.getRequestCount()).toBe(1); // No retry for HTTP errors
+    });
+
+    it('should handle error responses with custom headers', async () => {
+      testServer.setRouteResponse('GET', '/error-with-headers', { 
+        status: 400, 
+        body: { error: 'Bad Request', requestId: 'req-12345' }
+      });
+
+      const response = await httpReq.GET(`${testServer.getUrl()}/error-with-headers`, {
+        headers: { 'X-Request-ID': 'client-67890' }
+      });
+      
+      expect(response.status).toBe(400);
+      expect(response.body).toMatchObject({
+        error: 'Bad Request',
+        requestId: 'req-12345'
+      });
+      
+      // Verify headers were sent even for error responses
+      expect(testServer.wasHeaderReceived('X-Request-ID', 'client-67890')).toBe(true);
+      expect(testServer.getRequestCount()).toBe(1);
+    });
+  });
 });

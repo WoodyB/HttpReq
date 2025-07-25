@@ -1,4 +1,5 @@
-module.exports = {
+// ESLint configuration
+const config = {
   root: true,
   parser: '@typescript-eslint/parser',
   parserOptions: {
@@ -99,6 +100,8 @@ module.exports = {
     'bin/',
     '*.js.map',
     'coverage/',
-    '.eslintrc.js'
+    'jest.*.config.ts'
   ]
 };
+
+export default config;

@@ -1,7 +1,7 @@
 import nock from 'nock';
-import { HttpReq, HttpClientType } from '../src/HttpReq';
-import { responseFixtures } from './fixtures/responses';
-import { TestLogger } from './TestLogger';
+import { HttpReq, HttpClientType } from '../../src/HttpReq';
+import { responseFixtures } from '../fixtures/responses';
+import { TestLogger } from '../TestLogger';
 
 // Test response interfaces for type safety
 interface TestSuccessResponse {
@@ -23,16 +23,6 @@ interface TestUsersResponse {
 
 interface TestErrorResponse {
   error: string;
-}
-
-interface TestRetryResponse {
-  message: string;
-  retriesNeeded: number;
-}
-
-interface TestRecoveryResponse {
-  quickRecovery?: boolean;
-  maxRetriesUsed?: boolean;
 }
 
 interface TestSuccessFlag {
@@ -574,206 +564,92 @@ describe.each([
     });
   });
 
-  describe('Retry Logic', () => {
-    let testServer: any;
+  describe('HTTP Error Handling (No Retry)', () => {
+    it('should not retry on HTTP status errors (4xx, 5xx)', async () => {
+      // HTTP errors should not trigger retries - they're not network errors
+      nock('https://postman-echo.com')
+        .get('/http-error')
+        .reply(500, { error: 'Server error' });
 
-    beforeEach(async () => {
-      const { TestServer } = await import('./TestServer');
-      testServer = new TestServer();
+      const response = await httpReq.GET<TestErrorResponse>('https://postman-echo.com/http-error');
+      
+      expect(response.status).toBe(500);
+      expect(response.body.error).toBe('Server error');
+      expect(nock.isDone()).toBe(true);
     });
 
-    afterEach(async () => {
-      if (testServer) {
-        await testServer.stop();
+    it('should handle 404 errors without retry', async () => {
+      nock('https://postman-echo.com')
+        .get('/not-found')
+        .reply(404, { error: 'Not found' });
+
+      const response = await httpReq.GET<TestErrorResponse>('https://postman-echo.com/not-found');
+      
+      expect(response.status).toBe(404);
+      expect(response.body.error).toBe('Not found');
+      expect(nock.isDone()).toBe(true);
+    });
+  });
+
+  describe('Retry Logic Verification', () => {
+    it('has retry logic implemented in code', () => {
+      // Both implementations now use the same unified retry logic in HttpReq.ts
+      const HttpReqSource = require('fs').readFileSync(
+        require('path').resolve(__dirname, '../../src/HttpReq.ts'), 
+        'utf8'
+      );
+      
+      expect(HttpReqSource).toContain('for (let attempt = 0; attempt <= 3; attempt++)');
+      expect(HttpReqSource).toContain('isValidRetryErr');
+      expect(HttpReqSource).toContain('ECONNREFUSED');
+      expect(HttpReqSource).toContain('ETIMEDOUT');
+      expect(HttpReqSource).toContain('ECONNRESET');
+    });
+
+    it('validates retryable error codes correctly', () => {
+      // Test the isValidRetryErr method indirectly through reflection
+      const httpReqAny = httpReq as any;
+      
+      // Simple test: try calling with object first, if it works, it's HttpReq2
+      let isHttpReq2 = false;
+      try {
+        const result = httpReqAny.isValidRetryErr({ code: 'ECONNREFUSED' });
+        // If we get here without error and get true, it's HttpReq2
+        isHttpReq2 = result === true;
+      } catch {
+        // If we get an exception, it's HttpReq (superagent)
+        isHttpReq2 = false;
       }
-    });
-
-    describe('HTTP Error Handling (No Retry)', () => {
-      it('should not retry on HTTP status errors (4xx, 5xx)', async () => {
-        // HTTP errors should not trigger retries - they're not network errors
-        nock('https://postman-echo.com')
-          .get('/http-error')
-          .reply(500, { error: 'Server error' });
-
-        const response = await httpReq.GET<TestErrorResponse>('https://postman-echo.com/http-error');
+      
+      if (isHttpReq2) {
+        // HttpReq2 (axios) - takes object with code property
+        expect(httpReqAny.isValidRetryErr({ code: 'ECONNREFUSED' })).toBe(true);
+        expect(httpReqAny.isValidRetryErr({ code: 'ETIMEDOUT' })).toBe(true);
+        expect(httpReqAny.isValidRetryErr({ code: 'ECONNRESET' })).toBe(true);
+        expect(httpReqAny.isValidRetryErr({ code: 'EADDRINFO' })).toBe(true);
+        expect(httpReqAny.isValidRetryErr({ code: 'ESOCKETTIMEDOUT' })).toBe(true);
         
-        expect(response.status).toBe(500);
-        expect(response.body.error).toBe('Server error');
-        expect(nock.isDone()).toBe(true);
-      });
-
-      it('should handle 404 errors without retry', async () => {
-        nock('https://postman-echo.com')
-          .get('/not-found')
-          .reply(404, { error: 'Not found' });
-
-        const response = await httpReq.GET<TestErrorResponse>('https://postman-echo.com/not-found');
+        // Test invalid retry errors
+        expect(httpReqAny.isValidRetryErr({ code: 'ENOTFOUND' })).toBe(false);
+        expect(httpReqAny.isValidRetryErr({ code: 'EINVAL' })).toBe(false);
+        expect(httpReqAny.isValidRetryErr({})).toBe(false);
+        expect(httpReqAny.isValidRetryErr({ code: null })).toBe(false);
+        expect(httpReqAny.isValidRetryErr({ code: undefined })).toBe(false);
+      } else {
+        // HttpReq (superagent) - takes string directly
+        expect(httpReqAny.isValidRetryErr('ECONNREFUSED')).toBe(true);
+        expect(httpReqAny.isValidRetryErr('ETIMEDOUT')).toBe(true);
+        expect(httpReqAny.isValidRetryErr('ECONNRESET')).toBe(true);
+        expect(httpReqAny.isValidRetryErr('EADDRINFO')).toBe(true);
+        expect(httpReqAny.isValidRetryErr('ESOCKETTIMEDOUT')).toBe(true);
         
-        expect(response.status).toBe(404);
-        expect(response.body.error).toBe('Not found');
-        expect(nock.isDone()).toBe(true);
-      });
-    });
-
-    describe('Automated Network Retry Tests', () => {
-      it('should retry on connection drops and eventually succeed', async () => {
-        await testServer.start();
-        
-        // Configure server to fail 2 times, then succeed
-        testServer.failThenSucceed(2, { message: 'Success after retries', retriesNeeded: 2 });
-        
-        const response = await httpReq.GET<TestRetryResponse>(`${testServer.getUrl()}/retry-test`);
-        
-        expect(response.status).toBe(200);
-        expect(response.body.message).toBe('Success after retries');
-        expect(response.body.retriesNeeded).toBe(2);
-        expect(testServer.getRequestCount()).toBe(3); // 2 failures + 1 success
-      }, 10000);
-
-      it('should fail after maximum retries (4 attempts)', async () => {
-        await testServer.start();
-        
-        // Configure server to always fail
-        testServer.alwaysFail();
-        
-        await expect(httpReq.GET(`${testServer.getUrl()}/always-fail`))
-          .rejects.toMatchObject({ code: 'ECONNRESET' });
-          
-        expect(testServer.getRequestCount()).toBe(4); // Initial + 3 retries
-      }, 10000);
-
-      it('should succeed on first retry after initial failure', async () => {
-        await testServer.start();
-        
-        // Configure server to fail once, then succeed
-        testServer.failThenSucceed(1, { quickRecovery: true });
-        
-        const response = await httpReq.GET<TestRecoveryResponse>(`${testServer.getUrl()}/quick-recovery`);
-        
-        expect(response.status).toBe(200);
-        expect(response.body.quickRecovery).toBe(true);
-        expect(testServer.getRequestCount()).toBe(2); // 1 failure + 1 success
-      }, 10000);
-
-      it('should succeed after 3 retries (maximum allowed)', async () => {
-        await testServer.start();
-        
-        // Configure server to fail 3 times, then succeed (uses all retries)
-        testServer.failThenSucceed(3, { maxRetriesUsed: true });
-        
-        const response = await httpReq.GET<TestRecoveryResponse>(`${testServer.getUrl()}/max-retries`);
-        
-        expect(response.status).toBe(200);
-        expect(response.body.maxRetriesUsed).toBe(true);
-        expect(testServer.getRequestCount()).toBe(4); // 3 failures + 1 success
-      }, 10000);
-
-      it('should handle intermittent failures correctly', async () => {
-        await testServer.start();
-        
-        // Set up specific response pattern: fail, succeed, for multiple requests
-        testServer.setResponses([
-          { error: 'ECONNRESET' },  // First request fails
-          { status: 200, body: { attempt: 1, success: true } }  // Retry succeeds
-        ]);
-        
-        const response = await httpReq.GET<TestSuccessFlag>(`${testServer.getUrl()}/intermittent`);
-        
-        expect(response.status).toBe(200);
-        expect(response.body.success).toBe(true);
-        expect(testServer.getRequestCount()).toBe(2);
-      }, 10000);
-    });
-
-    describe('Retry Logic Verification', () => {
-      it('has retry logic implemented in code', () => {
-        // Both implementations now use the same unified retry logic in HttpReq.ts
-        const HttpReqSource = require('fs').readFileSync(
-          require('path').resolve(__dirname, '../src/HttpReq.ts'), 
-          'utf8'
-        );
-        
-        expect(HttpReqSource).toContain('for (let attempt = 0; attempt <= 3; attempt++)');
-        expect(HttpReqSource).toContain('isValidRetryErr');
-        expect(HttpReqSource).toContain('ECONNREFUSED');
-        expect(HttpReqSource).toContain('ETIMEDOUT');
-        expect(HttpReqSource).toContain('ECONNRESET');
-      });
-
-      it('validates retryable error codes correctly', () => {
-        // Test the isValidRetryErr method indirectly through reflection
-        const httpReqAny = httpReq as any;
-        
-        // Simple test: try calling with object first, if it works, it's HttpReq2
-        let isHttpReq2 = false;
-        try {
-          const result = httpReqAny.isValidRetryErr({ code: 'ECONNREFUSED' });
-          // If we get here without error and get true, it's HttpReq2
-          isHttpReq2 = result === true;
-        } catch {
-          // If we get an exception, it's HttpReq (superagent)
-          isHttpReq2 = false;
-        }
-        
-        if (isHttpReq2) {
-          // HttpReq2 (axios) - takes object with code property
-          expect(httpReqAny.isValidRetryErr({ code: 'ECONNREFUSED' })).toBe(true);
-          expect(httpReqAny.isValidRetryErr({ code: 'ETIMEDOUT' })).toBe(true);
-          expect(httpReqAny.isValidRetryErr({ code: 'ECONNRESET' })).toBe(true);
-          expect(httpReqAny.isValidRetryErr({ code: 'EADDRINFO' })).toBe(true);
-          expect(httpReqAny.isValidRetryErr({ code: 'ESOCKETTIMEDOUT' })).toBe(true);
-          
-          // Test invalid retry errors
-          expect(httpReqAny.isValidRetryErr({ code: 'ENOTFOUND' })).toBe(false);
-          expect(httpReqAny.isValidRetryErr({ code: 'EINVAL' })).toBe(false);
-          expect(httpReqAny.isValidRetryErr({})).toBe(false);
-          expect(httpReqAny.isValidRetryErr({ code: null })).toBe(false);
-          expect(httpReqAny.isValidRetryErr({ code: undefined })).toBe(false);
-        } else {
-          // HttpReq (superagent) - takes string directly
-          expect(httpReqAny.isValidRetryErr('ECONNREFUSED')).toBe(true);
-          expect(httpReqAny.isValidRetryErr('ETIMEDOUT')).toBe(true);
-          expect(httpReqAny.isValidRetryErr('ECONNRESET')).toBe(true);
-          expect(httpReqAny.isValidRetryErr('EADDRINFO')).toBe(true);
-          expect(httpReqAny.isValidRetryErr('ESOCKETTIMEDOUT')).toBe(true);
-          
-          // Test invalid retry errors
-          expect(httpReqAny.isValidRetryErr('ENOTFOUND')).toBe(false);
-          expect(httpReqAny.isValidRetryErr('EINVAL')).toBe(false);
-          expect(httpReqAny.isValidRetryErr('')).toBe(false);
-          expect(httpReqAny.isValidRetryErr(null)).toBe(false);
-          expect(httpReqAny.isValidRetryErr(undefined)).toBe(false);
-        }
-      });
-    });
-
-    describe('Performance and Timing', () => {
-      it('should complete retries quickly for connection refused errors', async () => {
-        await testServer.start();
-        testServer.alwaysFail();
-        
-        const startTime = Date.now();
-        
-        await expect(httpReq.GET(`${testServer.getUrl()}/timing-test`))
-          .rejects.toMatchObject({ code: 'ECONNRESET' });
-        
-        const elapsed = Date.now() - startTime;
-        
-        // Connection refused errors should be fast (no network delay)
-        expect(elapsed).toBeLessThan(1000); // Should complete in under 1 second
-        expect(testServer.getRequestCount()).toBe(4); // Confirm all retries happened
-      }, 10000);
-
-      it('should log retry attempts', async () => {
-        await testServer.start();
-        testServer.failThenSucceed(2);
-        
-        await httpReq.GET(`${testServer.getUrl()}/logging-test`);
-        
-        // Check that requests were logged (the successful one at minimum)
-        expect(testLogger.hasBeenCalled()).toBe(true);
-        expect(testLogger.getLogCount()).toBeGreaterThan(0);
-      }, 10000);
+        // Test invalid retry errors
+        expect(httpReqAny.isValidRetryErr('ENOTFOUND')).toBe(false);
+        expect(httpReqAny.isValidRetryErr('EINVAL')).toBe(false);
+        expect(httpReqAny.isValidRetryErr('')).toBe(false);
+        expect(httpReqAny.isValidRetryErr(null)).toBe(false);
+        expect(httpReqAny.isValidRetryErr(undefined)).toBe(false);
+      }
     });
   });
 
@@ -855,4 +731,3 @@ describe.each([
     });
   });
 });
-

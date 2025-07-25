@@ -1,3 +1,6 @@
+import axios, { AxiosInstance, AxiosResponse, AxiosRequestConfig, AxiosError } from 'axios';
+import * as superagent from 'superagent';
+
 const HTTP_REQUEST = {
   TIMEOUT: 70000,
 };
@@ -383,7 +386,7 @@ interface IHttpClient {
 class SuperagentHttpClient implements IHttpClient {
   // eslint-disable-next-line no-unused-vars
   private logger: (_message: string) => void;
-  private _request: unknown = null;
+  private _request: typeof superagent | null = null;
 
   // eslint-disable-next-line no-unused-vars
   constructor(logger: (_message: string) => void) {
@@ -392,14 +395,16 @@ class SuperagentHttpClient implements IHttpClient {
 
   // Lazy load superagent - only try to load it when first needed
   // This allows users to only install the HTTP client they actually want
-  private getRequest() {
+  private getRequest(): typeof superagent {
     if (!this._request) {
       try {
-        this._request = require('superagent');
-      } catch (error: any) {
+        // Use dynamic import to avoid bundling superagent unless needed
+        this._request = require('superagent') as typeof superagent;
+      } catch (error: unknown) {
+        const typedError = error as Error;
         throw new Error(
           `superagent is required but not found. Please install it with: npm install superagent\n` +
-          `Original error: ${error.message}`
+          `Original error: ${typedError.message}`
         );
       }
     }
@@ -407,31 +412,31 @@ class SuperagentHttpClient implements IHttpClient {
   }
 
   public GET<T = unknown>(url: string, data?: Partial<HttpRequestConfig>): Promise<HttpResponse<T>> {
-    const request = this.getRequest() as { get: unknown };
-    return this.send(request.get, url, data) as Promise<HttpResponse<T>>;
+    const request = this.getRequest();
+    return this.send<T>(request.get, 'GET', url, data);
   }
 
   public POST<T = unknown>(url: string, data?: HttpRequestConfig): Promise<HttpResponse<T>> {
-    const request = this.getRequest() as { post: unknown };
-    return this.send(request.post, url, data) as Promise<HttpResponse<T>>;
+    const request = this.getRequest();
+    return this.send<T>(request.post, 'POST', url, data);
   }
 
   public DELETE<T = unknown>(url: string, data?: HttpRequestConfig): Promise<HttpResponse<T>> {
-    const request = this.getRequest() as { delete: unknown };
-    return this.send(request.delete, url, data) as Promise<HttpResponse<T>>;
+    const request = this.getRequest();
+    return this.send<T>(request.delete, 'DELETE', url, data);
   }
 
   public PUT<T = unknown>(url: string, data?: HttpRequestConfig): Promise<HttpResponse<T>> {
-    const request = this.getRequest() as { put: unknown };
-    return this.send(request.put, url, data) as Promise<HttpResponse<T>>;
+    const request = this.getRequest();
+    return this.send<T>(request.put, 'PUT', url, data);
   }
 
   public PATCH<T = unknown>(url: string, data?: HttpRequestConfig): Promise<HttpResponse<T>> {
-    const request = this.getRequest() as { patch: unknown };
-    return this.send(request.patch, url, data) as Promise<HttpResponse<T>>;
+    const request = this.getRequest();
+    return this.send<T>(request.patch, 'PATCH', url, data);
   }
 
-  public isValidRetryErr(err: string | any): boolean {
+  public isValidRetryErr(err: string | Error): boolean {
     const validRetryErrs = [
       'ECONNREFUSED',
       'ECONNRESET',
@@ -441,61 +446,70 @@ class SuperagentHttpClient implements IHttpClient {
     ];
     
     // Handle both string error codes and error objects
-    const errorCode = typeof err === 'string' ? err : (err?.code ?? err?.message);
+    const errorCode = typeof err === 'string' ? err : (err as any)?.code ?? err.message;
     return validRetryErrs.includes(errorCode);
   }
 
-  // Keep original send method for now - will fix later
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private async send(method: any, url: string, data: any): Promise<any> {
+  // eslint-disable-next-line no-unused-vars
+  private async send<T = unknown>(method: (arg: string) => superagent.SuperAgentRequest, methodName: string, requestUrl: string, data?: HttpRequestConfig): Promise<HttpResponse<T>> {
     let headers: object = {};
-    let body: object;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let finalHeaders: any = {};
+    let body: object | undefined;
+    let finalHeaders: Record<string, string> = {};
 
     if (data) {
-      headers = data.headers;
-      finalHeaders = headers || {}; // Ensure finalHeaders is always an object
+      headers = data.headers ?? {};
+      finalHeaders = headers as Record<string, string>; // Ensure finalHeaders is always an object
       body = data.body;
     }
 
     // Use the utility functions for query parameter processing
-    const { baseUrl, mergedQuery } = mergeQueryParameters(url, data?.query);
+    const { baseUrl, mergedQuery } = mergeQueryParameters(requestUrl, data?.query);
     const processedQuery = processQueryObject(mergedQuery);
 
     const request = this.getRequest();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if (method === (request as any).get) {
-      finalHeaders = { Accept: 'application/json', ...headers };
+    if (method === request.get) {
+      finalHeaders = { Accept: 'application/json', ...finalHeaders };
     }
 
     const startDate = new Date();
 
     for (let attempt = 0; attempt <= 3; attempt++) {
       try {
-        const response = await new Promise((resolve, reject) => {
+        const response = await new Promise<superagent.Response>((resolve, reject) => {
           method(baseUrl)
             .timeout(HTTP_REQUEST.TIMEOUT)
             .set(finalHeaders)
             .send(body)
             .query(processedQuery)
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            .ok((res: any) => res.status < 600)
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            .end((error: any, res: any) => {
+            .ok((res: superagent.Response) => res.status < 600)
+            .end((error: Error | null, res?: superagent.Response) => {
               if (error) {
                 reject(error);
                 return;
               }
-              resolve(res);
+              if (res) {
+                resolve(res);
+              } else {
+                reject(new Error('No response received'));
+              }
             });
         });
 
         // Success - log and return
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const formattedRsp = logRequest(formatRsp(response as any), startDate);
+        const formattedResponse: HttpResponse<T> = {
+          status: response.status,
+          body: response.body as T,
+          request: {
+            method: methodName,
+            url: requestUrl,
+            header: finalHeaders,
+            _data: body
+          }
+        };
+
+        const formattedRsp = logRequest(formatRsp(formattedResponse), startDate);
         this.logger(formattedRsp);
-        return response;
+        return formattedResponse;
 
       } catch (error: unknown) {
         const typedError = error as { code?: string; message?: string };
@@ -505,6 +519,9 @@ class SuperagentHttpClient implements IHttpClient {
         throw error; // No more retries or not a retryable error
       }
     }
+    
+    // This should never be reached due to the retry loop, but TypeScript needs it
+    throw new Error('Request failed after all retries');
   }
 }
 
@@ -512,8 +529,7 @@ class SuperagentHttpClient implements IHttpClient {
 class AxiosHttpClient implements IHttpClient {
   // eslint-disable-next-line no-unused-vars
   private logger: (_message: string) => void;
-  private axiosInstance: any;
-  private _axios: any = null;
+  private axiosInstance: AxiosInstance | null = null;
 
   // eslint-disable-next-line no-unused-vars
   constructor(logger: (_message: string) => void) {
@@ -522,49 +538,44 @@ class AxiosHttpClient implements IHttpClient {
 
   // Lazy load axios - only try to load it when first needed
   // This allows users to only install the HTTP client they actually want
-  private getAxios() {
-    if (!this._axios) {
+  private getAxios(): AxiosInstance {
+    if (!this.axiosInstance) {
       try {
-        this._axios = require('axios');
-        this.axiosInstance = this._axios.create({
+        this.axiosInstance = axios.create({
           timeout: HTTP_REQUEST.TIMEOUT,
         });
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const typedError = error as Error;
         throw new Error(
           `axios is required but not found. Please install it with: npm install axios\n` +
-          `Original error: ${error.message}`
+          `Original error: ${typedError.message}`
         );
       }
     }
-    return this._axios;
+    return this.axiosInstance;
   }
 
   public GET<T = unknown>(url: string, data?: Partial<HttpRequestConfig>): Promise<HttpResponse<T>> {
-    this.getAxios();
-    return this.send('GET', url, data);
+    return this.send<T>('GET', url, data);
   }
 
   public POST<T = unknown>(url: string, data?: HttpRequestConfig): Promise<HttpResponse<T>> {
-    this.getAxios();
-    return this.send('POST', url, data);
+    return this.send<T>('POST', url, data);
   }
 
   public DELETE<T = unknown>(url: string, data?: HttpRequestConfig): Promise<HttpResponse<T>> {
-    this.getAxios();
-    return this.send('DELETE', url, data);
+    return this.send<T>('DELETE', url, data);
   }
 
   public PUT<T = unknown>(url: string, data?: HttpRequestConfig): Promise<HttpResponse<T>> {
-    this.getAxios();
-    return this.send('PUT', url, data);
+    return this.send<T>('PUT', url, data);
   }
 
   public PATCH<T = unknown>(url: string, data?: HttpRequestConfig): Promise<HttpResponse<T>> {
-    this.getAxios();
-    return this.send('PATCH', url, data);
+    return this.send<T>('PATCH', url, data);
   }
 
-  public isValidRetryErr(error: any): boolean {
+  public isValidRetryErr(error: string | Error | AxiosError): boolean {
     const validRetryErrs = [
       'ECONNREFUSED',
       'ECONNRESET',
@@ -574,18 +585,28 @@ class AxiosHttpClient implements IHttpClient {
     ];
     
     // Handle both string error codes and error objects
-    const errorCode = typeof error === 'string' ? error : (error?.code ?? error?.message);
+    let errorCode: string;
+    if (typeof error === 'string') {
+      errorCode = error;
+    } else if ('code' in error && error.code) {
+      // AxiosError or NodeJS Error with code property
+      errorCode = error.code;
+    } else {
+      // Regular Error object
+      errorCode = error.message;
+    }
     return validRetryErrs.includes(errorCode);
   }
 
-  private async send(method: string, url: string, data: any): Promise<any> {
+  private async send<T = unknown>(method: string, url: string, data?: HttpRequestConfig): Promise<HttpResponse<T>> {
+    const axiosInstance = this.getAxios();
     let headers: object = {};
     let body: object | undefined;
-    let finalHeaders: any = {};
+    let finalHeaders: Record<string, string> = {};
 
     if (data) {
-      headers = data.headers;
-      finalHeaders = headers || {}; // Ensure finalHeaders is always an object
+      headers = data.headers ?? {};
+      finalHeaders = headers as Record<string, string>; // Ensure finalHeaders is always an object
       body = data.body;
     }
 
@@ -594,16 +615,16 @@ class AxiosHttpClient implements IHttpClient {
     const processedQuery = processQueryObject(mergedQuery);
 
     if (method === 'GET') {
-      finalHeaders = { Accept: 'application/json', ...headers };
+      finalHeaders = { Accept: 'application/json', ...finalHeaders };
     }
 
     const startDate = new Date();
     
-    let response: any;
+    let response: AxiosResponse<T>;
     
     // Configure axios request
-    const config = {
-      method: method.toLowerCase(),
+    const config: AxiosRequestConfig = {
+      method: method.toLowerCase() as any, // axios accepts lowercase method names
       url: baseUrl,
       headers: finalHeaders,
       data: body,
@@ -614,17 +635,17 @@ class AxiosHttpClient implements IHttpClient {
     // Retry logic
     for (let attempt = 0; attempt <= 3; attempt++) {
       try {
-        response = await this.axiosInstance.request(config);
+        response = await axiosInstance.request<T>(config);
         break;
-      } catch (error: any) {
-        if (attempt < 3 && this.isValidRetryErr(error)) {
+      } catch (error: unknown) {
+        if (attempt < 3 && this.isValidRetryErr(error as AxiosError)) {
           continue;
         }
         throw error; // No more retries or not a retryable error
       }
     }
 
-    const formattedResponse = {
+    const formattedResponse: HttpResponse<T> = {
       status: response!.status,
       body: response!.data,
       request: {

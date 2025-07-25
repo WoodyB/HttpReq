@@ -1,5 +1,6 @@
 import { HttpReq, HttpClientType } from '../../src/HttpReq';
 import { TestLogger } from '../TestLogger';
+import { responseFixtures } from '../fixtures/responses';
 
 // Test response interfaces for type safety
 interface TestRetryResponse {
@@ -15,6 +16,31 @@ interface TestRecoveryResponse {
 interface TestSuccessFlag {
   success: boolean;
   attempt?: number;
+}
+
+interface TestSuccessResponse {
+  message: string;
+  data: {
+    id: number;
+    name: string;
+    email?: string;
+  };
+}
+
+interface TestCreateResponse {
+  message: string;
+  id: number;
+  timestamp: string;
+}
+
+interface TestUsersResponse {
+  users: Array<{ id: number; name: string; role: string }>;
+  total: number;
+}
+
+interface TestErrorResponse {
+  error: string;
+  message: string;
 }
 
 describe.each([
@@ -345,5 +371,232 @@ describe.each([
       expect(putResponse.body.method).toBe('PUT');
       expect(putResponse.body.retried).toBe(true);
     }, 20000);
+  });
+
+  describe('HTTP Methods - Real Network Testing', () => {
+    it('should make successful GET request over real network', async () => {
+      await testServer.start();
+      
+      // Use the same fixture as unit tests but via real network
+      testServer.setRouteResponse('GET', '/users', {
+        status: responseFixtures.success.status,
+        body: responseFixtures.success.body
+      });
+
+      const response = await httpReq.GET<TestSuccessResponse>(`${testServer.getUrl()}/users`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.message).toBe('Success');
+      expect(response.body.data.name).toBe('Test User');
+      expect(response.body.data.email).toBe('test@example.com');
+      
+      // Verify the request actually went over the network
+      expect(testServer.getRequestCount()).toBe(1);
+      
+      // Verify request details were captured
+      const receivedRequests = testServer.getReceivedRequests();
+      expect(receivedRequests).toHaveLength(1);
+      expect(receivedRequests[0].method).toBe('GET');
+      expect(receivedRequests[0].url).toBe('/users');
+    });
+
+    it('should make successful POST request over real network', async () => {
+      await testServer.start();
+      
+      const requestBody = { name: 'New User', email: 'new@example.com' };
+      
+      // Use created fixture
+      testServer.setRouteResponse('POST', '/users', {
+        status: responseFixtures.created.status,
+        body: responseFixtures.created.body
+      });
+
+      const response = await httpReq.POST<TestCreateResponse>(`${testServer.getUrl()}/users`, { 
+        headers: {}, 
+        body: requestBody 
+      });
+
+      expect(response.status).toBe(201);
+      expect(response.body.message).toBe('Resource created successfully');
+      expect(response.body.id).toBe(123);
+      expect(response.body.timestamp).toBe('2025-07-22T10:00:00Z');
+      
+      // Verify the request was sent over the network with correct body
+      expect(testServer.getRequestCount()).toBe(1);
+      
+      const receivedRequests = testServer.getReceivedRequests();
+      expect(receivedRequests).toHaveLength(1);
+      expect(receivedRequests[0].method).toBe('POST');
+      expect(receivedRequests[0].url).toBe('/users');
+      expect(receivedRequests[0].body).toEqual(requestBody);
+    });
+
+    it('should make successful PUT request over real network', async () => {
+      await testServer.start();
+      
+      const requestBody = { name: 'Updated User', email: 'updated@example.com' };
+      
+      // Use success fixture for PUT response
+      testServer.setRouteResponse('PUT', '/users/1', {
+        status: responseFixtures.success.status,
+        body: responseFixtures.success.body
+      });
+
+      const response = await httpReq.PUT<TestSuccessResponse>(`${testServer.getUrl()}/users/1`, { 
+        headers: {}, 
+        body: requestBody 
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body.message).toBe('Success');
+      
+      // Verify the request went over the real network with correct method and body
+      expect(testServer.getRequestCount()).toBe(1);
+      
+      const receivedRequests = testServer.getReceivedRequests();
+      expect(receivedRequests).toHaveLength(1);
+      expect(receivedRequests[0].method).toBe('PUT');
+      expect(receivedRequests[0].url).toBe('/users/1');
+      expect(receivedRequests[0].body).toEqual(requestBody);
+    });
+
+    it('should make successful PATCH request over real network', async () => {
+      await testServer.start();
+      
+      const requestBody = { email: 'patched@example.com' };
+      
+      // Use success fixture for PATCH response
+      testServer.setRouteResponse('PATCH', '/users/1', {
+        status: responseFixtures.success.status,
+        body: responseFixtures.success.body
+      });
+
+      const response = await httpReq.PATCH<TestSuccessResponse>(`${testServer.getUrl()}/users/1`, { 
+        headers: {}, 
+        body: requestBody 
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body.message).toBe('Success');
+      
+      // Verify PATCH method and partial body were sent correctly
+      expect(testServer.getRequestCount()).toBe(1);
+      
+      const receivedRequests = testServer.getReceivedRequests();
+      expect(receivedRequests).toHaveLength(1);
+      expect(receivedRequests[0].method).toBe('PATCH');
+      expect(receivedRequests[0].url).toBe('/users/1');
+      expect(receivedRequests[0].body).toEqual(requestBody);
+    });
+
+    it('should make successful DELETE request over real network', async () => {
+      await testServer.start();
+      
+      // Use noContent fixture for DELETE response
+      testServer.setRouteResponse('DELETE', '/users/1', {
+        status: responseFixtures.noContent.status,
+        body: responseFixtures.noContent.body
+      });
+
+      const response = await httpReq.DELETE(`${testServer.getUrl()}/users/1`);
+
+      expect(response.status).toBe(204);
+      
+      // Verify DELETE method was sent correctly
+      expect(testServer.getRequestCount()).toBe(1);
+      
+      const receivedRequests = testServer.getReceivedRequests();
+      expect(receivedRequests).toHaveLength(1);
+      expect(receivedRequests[0].method).toBe('DELETE');
+      expect(receivedRequests[0].url).toBe('/users/1');
+      expect(receivedRequests[0].body).toBeUndefined();
+    });
+
+    it('should handle URLs without query parameters over real network', async () => {
+      await testServer.start();
+      
+      // Use success fixture for simple endpoint
+      testServer.setRouteResponse('GET', '/simple', {
+        status: responseFixtures.success.status,
+        body: responseFixtures.success.body
+      });
+
+      const response = await httpReq.GET<TestSuccessResponse>(`${testServer.getUrl()}/simple`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.message).toBe('Success');
+      
+      // Verify the simple URL was processed over the real network
+      expect(testServer.getRequestCount()).toBe(1);
+      
+      const receivedRequests = testServer.getReceivedRequests();
+      expect(receivedRequests).toHaveLength(1);
+      expect(receivedRequests[0].method).toBe('GET');
+      expect(receivedRequests[0].url).toBe('/simple');
+    });
+
+    it('should handle HTTP error responses over real network', async () => {
+      await testServer.start();
+      
+      // Use error fixtures to test HTTP error handling
+      testServer.setRouteResponse('GET', '/not-found', {
+        status: responseFixtures.notFound.status,
+        body: responseFixtures.notFound.body
+      });
+
+      const response = await httpReq.GET<TestErrorResponse>(`${testServer.getUrl()}/not-found`);
+      
+      expect(response.status).toBe(404);
+      expect(response.body.error).toBe('Not Found');
+      expect(response.body.message).toBe('Resource not found');
+      
+      // Verify error response came through real network
+      expect(testServer.getRequestCount()).toBe(1);
+    });
+
+    it('should handle server error responses over real network', async () => {
+      await testServer.start();
+      
+      // Use server error fixture
+      testServer.setRouteResponse('GET', '/server-error', {
+        status: responseFixtures.serverError.status,
+        body: responseFixtures.serverError.body
+      });
+
+      const response = await httpReq.GET<TestErrorResponse>(`${testServer.getUrl()}/server-error`);
+      
+      expect(response.status).toBe(500);
+      expect(response.body.error).toBe('Internal Server Error');
+      expect(response.body.message).toBe('Something went wrong on our end');
+      
+      // Verify server error came through real network
+      expect(testServer.getRequestCount()).toBe(1);
+    });
+
+    it('should handle query parameters correctly over real network', async () => {
+      await testServer.start();
+      
+      // Use userList fixture for query parameter test
+      testServer.setRouteResponse('GET', '/users', {
+        status: responseFixtures.userList.status,
+        body: responseFixtures.userList.body
+      });
+
+      const response = await httpReq.GET<TestUsersResponse>(`${testServer.getUrl()}/users?page=1&limit=10&active=true`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.users).toHaveLength(3);
+      expect(response.body.total).toBe(3);
+      expect(response.body.users[0].name).toBe('Alice');
+      expect(response.body.users[0].role).toBe('admin');
+      
+      // Verify query parameters were sent over the network
+      expect(testServer.getRequestCount()).toBe(1);
+      
+      const receivedRequests = testServer.getReceivedRequests();
+      expect(receivedRequests).toHaveLength(1);
+      expect(receivedRequests[0].method).toBe('GET');
+      expect(receivedRequests[0].url).toBe('/users');
+    });
   });
 });

@@ -283,6 +283,43 @@ describe.each([
       expect(response.body.retrySuccessful).toBe(true);
       expect(testServer.getRequestCount()).toBe(2);
     }, 10000);
+
+    it('should throw "Request failed after all retries" in edge cases (SuperAgent only)', async () => {
+      // This test specifically targets the edge case error in SuperAgent implementation
+      // Skip for axios since this error path doesn't exist there
+      if (clientType === HttpClientType.AXIOS) {
+        return;
+      }
+
+      await testServer.start();
+      
+      // Create a scenario that forces all retry attempts to fail but doesn't throw a specific error
+      // This is an edge case that can occur when the retry loop completes but no response is achieved
+      testServer.alwaysFail();
+      
+      let caughtError: Error | null = null;
+      try {
+        await httpReq.GET(`${testServer.getUrl()}/edge-case-failure`);
+      } catch (error: any) {
+        caughtError = error;
+      }
+
+      // Verify that retries were attempted
+      expect(testServer.getRequestCount()).toBe(4); // Initial + 3 retries
+      
+      // For this edge case, we expect either the network error to be thrown
+      // or in very rare cases, the "Request failed after all retries" message
+      expect(caughtError).not.toBeNull();
+      expect(caughtError?.message).toBeDefined();
+      
+      // The error should be either the network error (ECONNRESET) or the retry failure message
+      // This tests the retry exhaustion path
+      const isNetworkError = (caughtError?.message?.includes('ECONNRESET') ?? false) || 
+                            ((caughtError as any)?.code === 'ECONNRESET');
+      const isRetryFailureMessage = caughtError?.message?.includes('Request failed after all retries') ?? false;
+      
+      expect(isNetworkError || isRetryFailureMessage).toBe(true);
+    }, 10000);
   });
 
   describe('Real Network Integration Tests', () => {

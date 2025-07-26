@@ -151,9 +151,10 @@ export class HttpReq {
     
     if (this.clientType === HttpClientType.AXIOS) {
       this.httpClient = new AxiosHttpClient(this.logger);
-    } else {
-      this.httpClient = new SuperagentHttpClient(this.logger);
+      return;
     }
+    
+    this.httpClient = new SuperagentHttpClient(this.logger);
   }
 
   /**
@@ -446,16 +447,18 @@ class SuperagentHttpClient implements IHttpClient {
       'ESOCKETTIMEDOUT',
     ];
     
-    // Handle both string error codes and error objects
-    let errorCode: string;
+    // Handle string error codes
     if (typeof err === 'string') {
-      errorCode = err;
-    } else if ('code' in err && typeof err.code === 'string') {
-      errorCode = err.code;
-    } else {
-      errorCode = err.message;
+      return validRetryErrs.includes(err);
     }
-    return validRetryErrs.includes(errorCode);
+    
+    // Handle error objects with code property
+    if ('code' in err && typeof err.code === 'string') {
+      return validRetryErrs.includes(err.code);
+    }
+    
+    // Handle regular Error objects using message
+    return validRetryErrs.includes(err.message);
   }
 
   // eslint-disable-next-line no-unused-vars
@@ -497,9 +500,10 @@ class SuperagentHttpClient implements IHttpClient {
               }
               if (res) {
                 resolve(res);
-              } else {
-                reject(new Error('No response received'));
+                return;
               }
+              
+              reject(new Error('No response received'));
             });
         });
 
@@ -592,18 +596,18 @@ class AxiosHttpClient implements IHttpClient {
       'ESOCKETTIMEDOUT',
     ];
     
-    // Handle both string error codes and error objects
-    let errorCode: string;
+    // Handle string error codes
     if (typeof error === 'string') {
-      errorCode = error;
-    } else if ('code' in error && error.code) {
-      // AxiosError or NodeJS Error with code property
-      errorCode = error.code;
-    } else {
-      // Regular Error object
-      errorCode = error.message;
+      return validRetryErrs.includes(error);
     }
-    return validRetryErrs.includes(errorCode);
+    
+    // Handle error objects with code property (AxiosError or NodeJS Error)
+    if ('code' in error && error.code) {
+      return validRetryErrs.includes(error.code);
+    }
+    
+    // Handle regular Error objects using message
+    return validRetryErrs.includes(error.message);
   }
 
   private async send<T = unknown>(method: string, url: string, data?: HttpRequestConfig): Promise<HttpResponse<T>> {

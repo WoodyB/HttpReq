@@ -5,10 +5,9 @@
   "main": "index.js",
   "scripts": {
     "build": "tsc --project .",
-    "test": "jest --config jest.unit.config.ts",
-    "test:acceptance": "jest --config jest.acceptance.config.ts",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
+    "test": "jest --config jest.unit.config.ts --coverage",
+    "test:acceptance": "jest --config jest.acceptance.config.ts --coverage",
+    "test:watch": "jest --watch --config jest.unit.config.ts",
     "demo": "node bin/demo.js",
     "lint": "eslint src tests --ext .ts",
     "lint:fix": "eslint src tests --ext .ts --fix",

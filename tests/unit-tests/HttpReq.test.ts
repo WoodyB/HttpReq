@@ -731,3 +731,128 @@ describe.each([
     });
   });
 });
+
+// Separate test suite for dependency loading errors (not part of describe.each)
+describe('Dependency Loading Errors', () => {
+  // Save original modules
+  const originalConsoleError = console.error;
+
+  beforeEach(() => {
+    // Suppress console.error during tests to avoid noise
+    console.error = jest.fn();
+  });
+
+  afterEach(() => {
+    // Restore console.error
+    console.error = originalConsoleError;
+    // Clear module cache completely
+    jest.resetModules();
+    jest.clearAllMocks();
+    // Clean up all mocks
+    jest.dontMock('axios');
+    jest.dontMock('superagent');
+  });
+
+  it('should throw descriptive error when superagent is not available', async () => {
+    // Mock the superagent module to throw an error when required
+    jest.doMock('superagent', () => {
+      const error = new Error(`Cannot find module 'superagent'`);
+      (error as any).code = 'MODULE_NOT_FOUND';
+      throw error;
+    });
+
+    // Import HttpReq after mocking to ensure the mock takes effect
+    const { HttpReq: MockedHttpReq, HttpClientType: MockedHttpClientType } = await import('../../src/HttpReq');
+    
+    // Create instance with superagent client type
+    const httpReq = new MockedHttpReq({ clientType: MockedHttpClientType.SUPERAGENT });
+
+    // Test that the correct error is thrown
+    let caughtError: Error | null = null;
+    try {
+      await httpReq.GET('http://test.com');
+    } catch (error: any) {
+      caughtError = error;
+    }
+
+    // Verify error was thrown and has correct content
+    expect(caughtError).not.toBeNull();
+    expect(caughtError?.message).toMatch(/superagent is required but not found\. Please install it with: npm install superagent/);
+    expect(caughtError?.message).toContain('Original error: Cannot find module \'superagent\'');
+  });
+
+  it('should throw descriptive error when axios is not available', async () => {
+    // Clean up any existing mocks first
+    jest.dontMock('superagent');
+    jest.resetModules();
+    
+    // Mock axios module to throw an error when imported
+    jest.doMock('axios', () => {
+      const error = new Error(`Cannot find module 'axios'`);
+      (error as any).code = 'MODULE_NOT_FOUND';
+      throw error;
+    });
+
+    // The axios import error should be thrown during the dynamic import itself
+    let caughtError: Error | null = null;
+    try {
+      await import('../../src/HttpReq');
+    } catch (error: any) {
+      caughtError = error;
+    }
+
+    // Verify error was thrown and has correct content
+    expect(caughtError).not.toBeNull();
+    expect(caughtError?.message).toContain('Cannot find module \'axios\'');
+  });
+
+  it('should handle generic require errors for superagent', async () => {
+    // Clean up any existing mocks first
+    jest.dontMock('axios');
+    jest.resetModules();
+    
+    // Mock superagent to throw a generic error
+    jest.doMock('superagent', () => {
+      throw new Error('Permission denied');
+    });
+
+    const { HttpReq: MockedHttpReq, HttpClientType: MockedHttpClientType } = await import('../../src/HttpReq');
+    const httpReq = new MockedHttpReq({ clientType: MockedHttpClientType.SUPERAGENT });
+
+    // Test that the correct error is thrown
+    let caughtError: Error | null = null;
+    try {
+      await httpReq.GET('http://test.com');
+    } catch (error: any) {
+      caughtError = error;
+    }
+
+    // Verify error was thrown and has correct content
+    expect(caughtError).not.toBeNull();
+    expect(caughtError?.message).toMatch(/superagent is required but not found\. Please install it with: npm install superagent/);
+    expect(caughtError?.message).toContain('Original error: Permission denied');
+  });
+
+  it('should handle generic axios loading errors', async () => {
+    // Clean up any existing mocks first
+    jest.dontMock('superagent');
+    jest.resetModules();
+    
+    // Mock axios to throw a generic error
+    jest.doMock('axios', () => {
+      throw new Error('Network interface not available');
+    });
+
+    // The axios import error should be thrown during the dynamic import itself
+    let caughtError: Error | null = null;
+    try {
+      await import('../../src/HttpReq');
+    } catch (error: any) {
+      caughtError = error;
+    }
+
+    // Verify error was thrown and has correct content
+    expect(caughtError).not.toBeNull();
+    expect(caughtError?.message).toContain('Network interface not available');
+  });
+});

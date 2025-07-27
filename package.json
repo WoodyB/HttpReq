@@ -10,11 +10,10 @@
     "test:watch": "jest --watch --config jest.unit.config.ts",
     "demo": "node bin/demo.js",
     "lint": "eslint src tests --ext .ts",
-    "lint:fix": "eslint src tests --ext .ts --fix",
-    "lint:check": "eslint src tests --ext .ts --max-warnings 0"
+    "lint:fix": "eslint src tests --ext .ts --fix"
   },
   "author": "Woody Beverley",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "@types/node": "^20.11.30",
     "@types/superagent": "^8.1.6",

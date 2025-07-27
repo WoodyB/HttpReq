@@ -56,8 +56,11 @@ npm install  # Installs both axios and superagent for development
 ## Running Tests & Demo
 
 ```bash
-# Run all tests
+# Run all unit tests 
 npm test
+
+# Run all acceptance tests against a real localhost server 
+npm test:acceptance
 
 # Run demo showing all usage patterns
 npm run demo
@@ -156,24 +159,6 @@ Original error: Cannot find module 'axios'
 - **Flexible Deployment**: Copy single file without dependency bloat
 - **Clear Errors**: Immediate feedback when dependencies are missing
 
-## Test Coverage
-
-Comprehensive test suite with **82+ tests** covering:
-
-- Constructor options and client selection
-- HTTP methods (GET, POST, PUT, PATCH, DELETE)
-- Advanced query parameters with object-based queries, array handling, and type conversion
-- Query parameter edge cases: null/undefined filtering, empty arrays, special characters
-- URL parameter parsing and merging with existing query strings
-- Headers and parameter merging
-- Security and data obfuscation (passwords, access keys, Basic/Bearer auth tokens)
-- Custom logging functionality
-- Error handling and HTTP status codes
-- Retry logic for network failures
-- Performance and timing validation
-- Lazy loading error scenarios
-- Cross-client consistency: identical behavior between axios and superagent
-
 ### Advanced Query Parameters
 
 The library supports complex query parameter handling with automatic type conversion:
@@ -191,16 +176,6 @@ await client.GET('/api/search', {
   }
 });
 ```
-
-## Architecture
-
-The library uses a factory pattern with lazy loading:
-
-1. **HttpReq**: Main class that delegates to HTTP client implementations
-2. **IHttpClient**: Interface ensuring identical behavior across clients
-3. **SuperagentHttpClient**: Superagent implementation with lazy loading
-4. **AxiosHttpClient**: Axios implementation with lazy loading
-5. **Lazy Loading**: HTTP clients load via try/catch require() only when needed
 
 ## License
 

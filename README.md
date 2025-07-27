@@ -4,7 +4,8 @@ A unified HTTP client that supports both **axios** and **superagent** with lazy 
 
 ## Overview
 
-HttpReq is a production-ready HTTP client library that provides:
+HttpReq is a HTTP client library designed to make RESTful API testing easier by allowing you to use your favorite JavaScript test runner and assertion library.
+It provides:
 
 - **Unified Interface**: Single class supporting both axios and superagent
 - **Lazy Loading**: Only loads the HTTP client you actually use

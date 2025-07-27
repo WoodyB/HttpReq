@@ -58,10 +58,10 @@ npm install  # Installs both axios and superagent for development
 
 ```bash
 # Run all unit tests 
-npm test
+npm run test
 
 # Run all acceptance tests against a real localhost server 
-npm test:acceptance
+npm run test:acceptance
 
 # Run demo showing all usage patterns
 npm run demo

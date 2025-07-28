@@ -1,4 +1,4 @@
-# HttpRequest Library
+# Http Request Library
 
 A unified HTTP client that supports both **axios** and **superagent** with lazy loading and identical APIs.
 

@@ -181,3 +181,185 @@ await client.GET('/api/search', {
 ## License
 
 MIT License
+
+## History
+
+I've been using different versions of this library for years. I always customize to fit the environment that it's in for a particular company. It is usually not standalone but part of a larger test utility library. While isolating for a week due to COVID I had a colleague reach out to me about REST API testing. She was working for a company that really needed to automate their API testing that they had brought back in house after ending a contract with a third party to develop and maintain it. Now as the technical lead for the project it was her problem now. Having worked together she remembered the good API testing we had at a former company and wanted to know how to go about it.
+I told her I was bored out of my mind and had just purchased a new MacBook Air and needed to make sure I had it all configured to be my new development machine anyway so I would be happy to make something she could use and expand on. That original code is listed below.
+I have been experimenting a lot with AI assisted development lately especially now that AI agents are available in GitHub and VS Code. I'm not interested in so-called "vibe coding" when it comes to anything other than just playing around. However, I see AI assisted development as a huge innovation. The trick is taming the AI so that it will do what a good software does and not go wild changing files all over the place. I thought of this code to use in an experiment to see if I get the agent, "Claude Sonnet in CoPilot" to behave and develop the way I would while expanding this code into something more useful. It took some work and it did go astray a few times but I like the results. I actually had the agent doing TDD which is more than I can usually get my colleagues to do :-).
+
+## Original Code the agent used as a base
+
+```typescript
+import * as request from 'superagent';
+
+const HTTP_REQUEST = {
+  TIMEOUT: 70000,
+};
+
+export class HttpReq {
+  public GET(url: string, data?: { headers: object }) {
+    return this.send(request.get, url, data);
+  }
+
+  public POST(url: string, data?: { headers: object, body: object }) {
+    return this.send(request.post, url, data);
+  }
+
+  public DELETE(url: string, data?: { headers: object, body: object }) {
+    return this.send(request.delete, url, data);
+  }
+
+  public PUT(url: string, data?: { headers: object, body: object }) {
+    return this.send(request.put, url, data);
+  }
+
+  public PATCH(url: string, data?: { headers: object, body: object }) {
+    return this.send(request.patch, url, data);
+  }
+
+  private send(method: any, url: string, data: any): Promise<any> {
+    let headers: object = {};
+    let body: object;
+    let finalHeaders: any = {};
+
+    if (data) {
+      headers = data.headers;
+      finalHeaders = headers;
+      body = data.body;
+    }
+
+    const [uri, queryStr] = url.split('?');
+    let query: any = {};
+
+    if (queryStr) {
+      query = this.processKeyPairs(queryStr);
+    }
+
+    if (method === request.get) {
+      finalHeaders = { Accept: 'application/json', ...headers };
+    }
+
+    const startDate = new Date();
+    return new Promise((resolve, reject) => {
+      method(uri)
+        .timeout(HTTP_REQUEST.TIMEOUT)
+        .set(finalHeaders)
+        .send(body)
+        .query(query)
+        .retry(3, (err: string) => this.isValidRetryErr(err))
+        .ok((res: any) => res.status < 600)
+        .end((error: any, res: any) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          // Here's where you would add your logging. For example whatever you are using to log to a file.
+          // I'll just put in a console.log so you can see it work
+          // This formatted output obfuscates data like passwords and auth tokens
+          // You may need to add more checks in the obfuscate method below depending on your api
+          const formattedRsp = this.logRequest(this.formatRsp(res), startDate);  
+          console.log(formattedRsp);
+          resolve(res);
+        });
+    });
+  }
+
+  private obfuscate(args: any) {
+    const fixedArgs: any = args;
+    if (args.access_key) {
+      fixedArgs.access_key = 'ACCESS KEY HIDDEN';
+    }
+
+    if (args.password) {
+      fixedArgs.password = 'PASSWORD HIDDEN';
+    }
+
+    return fixedArgs;
+  }
+
+  private logRequest(reqObj: any, startDate: any): string {
+    const endDate: any = new Date();
+    const msec: number = Math.abs(endDate - startDate);
+
+    const output = [
+      `::: ${startDate.toISOString()} :::`,
+      `${reqObj.req}`,
+      `${reqObj.rsp}`,
+      `::: Response Time: ${msec}ms :::`,
+    ].join('\n');
+    return (`${output}\n`);
+  }
+
+  private formatRsp(res: any) {
+    let data: any;
+
+    const output: any = {};
+    const regexBracesQuotesCommas = /({\n)|(")|(,)|(\n})/g;
+    const regexBasicAuthToken = /Authorization:\s*Basic.*/gi;
+    const regexVerificationToken = /verification-token:\s.*/gi;
+
+    let headers: string = JSON.stringify(res.request.header, null, 4);
+    headers = headers.replace(regexBracesQuotesCommas, '');
+    headers = headers.replace(
+      regexBasicAuthToken,
+      'Authorization: Basic TOKEN HIDDEN',
+    );
+    headers = headers.replace(
+      regexVerificationToken,
+      'verification-token: TOKEN HIDDEN',
+    );
+
+    output.req = [
+      `${res.request.method} ${res.request.url}\n`,
+      headers,
+    ].join('');
+
+    // eslint-disable-next-line no-underscore-dangle
+    if (res.request._data) {
+      data = `${JSON.stringify(
+        // eslint-disable-next-line no-underscore-dangle
+        this.obfuscate(res.request._data),
+        null,
+        4,
+      )}`;
+      output.req = output.req.concat(`\n${data}`).replace(/\\n/g, '\n');
+    }
+
+    output.rsp = [
+      `RESPONSE: ${res.status}`,
+      `${JSON.stringify(res.body, null, 4)}`,
+    ].join('\n');
+
+    return output;
+  }
+
+  private isValidRetryErr(err: string) {
+    const validRetryErrs = [
+      'ECONNREFUSED',
+      'ECONNRESET',
+      'ETIMEDOUT',
+      'EADDRINFO',
+      'ESOCKETTIMEDOUT',
+    ];
+    if (validRetryErrs.includes(err)) {
+      return true;
+    }
+    return false;
+  }
+
+  private processKeyPairs(str: string, options?: { delimiter: string, assignmentOp: string }): any {
+    const delimiter: string = options ? options.delimiter : '&';
+    const assignmentOp: string = options ? options.assignmentOp : '=';
+    const pairs: string[] = str.split(delimiter);
+    const resultMap = new Map();
+
+    pairs.forEach((pairStr: string) => {
+      const pairAr: string[] = pairStr.split(assignmentOp);
+      resultMap.set(pairAr[0], pairAr[1]);
+    });
+
+    return Object.fromEntries(resultMap);
+  }
+}
+```

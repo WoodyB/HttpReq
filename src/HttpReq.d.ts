@@ -20,6 +20,8 @@ interface HttpReqOptions {
 declare class HttpReq {
   constructor(options?: HttpReqOptions);
   getClientType(): HttpClientType;
+  isValidRetryErr(error: string | Error | object): boolean;
+  GET<T = unknown>(url: string, data?: object): Promise<{ status: number; body: T }>;
 }
 
 export = { HttpReq, HttpClientType };

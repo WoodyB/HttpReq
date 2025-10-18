@@ -88,7 +88,7 @@ describe('HttpReq - HTTP Client Implementation', () => {
   });
 });
 
-describe.skip.each([
+describe.each([
   [HttpClientType.SUPERAGENT, 'superagent'],
   [HttpClientType.AXIOS, 'axios']
 ])('HttpReq with %s implementation', (clientType) => {
@@ -120,7 +120,7 @@ describe.skip.each([
       expect(scope.isDone()).toBe(true);
     });
 
-    it('should make successful POST request', async () => {
+    it.skip('should make successful POST request', async () => {
       const requestBody = { name: 'New User', email: 'new@example.com' };
       
       const scope = nock(testBaseUrl)
@@ -138,7 +138,7 @@ describe.skip.each([
       expect(scope.isDone()).toBe(true);
     });
 
-    it('should make successful PUT request', async () => {
+    it.skip('should make successful PUT request', async () => {
       const requestBody = { name: 'Updated User', email: 'updated@example.com' };
       
       const scope = nock(testBaseUrl)
@@ -155,7 +155,7 @@ describe.skip.each([
       expect(scope.isDone()).toBe(true);
     });
 
-    it('should make successful PATCH request', async () => {
+    it.skip('should make successful PATCH request', async () => {
       const requestBody = { email: 'patched@example.com' };
       
       const scope = nock(testBaseUrl)
@@ -172,7 +172,7 @@ describe.skip.each([
       expect(scope.isDone()).toBe(true);
     });
 
-    it('should make successful DELETE request', async () => {
+    it.skip('should make successful DELETE request', async () => {
       const scope = nock(testBaseUrl)
         .delete('/users/1')
         .reply(204);
@@ -183,7 +183,7 @@ describe.skip.each([
       expect(scope.isDone()).toBe(true);
     });
 
-    it('should handle URLs without query parameters', async () => {
+    it.skip('should handle URLs without query parameters', async () => {
       const scope = nock(testBaseUrl)
         .get('/simple')
         .reply(responseFixtures.success.status, responseFixtures.success.body);
@@ -196,7 +196,7 @@ describe.skip.each([
     });
   });
 
-  describe('Headers and Parameters', () => {
+  describe.skip('Headers and Parameters', () => {
     it('should include custom headers in request', async () => {
       const customHeaders = {
         'Authorization': 'Bearer token123',
@@ -418,7 +418,7 @@ describe.skip.each([
     });
   });
 
-  describe('Security and Obfuscation', () => {
+  describe.skip('Security and Obfuscation', () => {
     it('should obfuscate sensitive data in request body', async () => {
       const scope = nock(testBaseUrl)
         .post('/sensitive', {
@@ -500,7 +500,7 @@ describe.skip.each([
     });
   });
 
-  describe('Logging', () => {
+  describe.skip('Logging', () => {
     it('should log request and response details', async () => {
       const scope = nock(testBaseUrl)
         .get('/users')
@@ -540,7 +540,7 @@ describe.skip.each([
     });
   });
 
-  describe('Error Handling', () => {
+  describe.skip('Error Handling', () => {
     it('should handle HTTP error responses', async () => {
       const scope = nock(testBaseUrl)
         .get('/error')
@@ -566,7 +566,7 @@ describe.skip.each([
     });
   });
 
-  describe('HTTP Error Handling (No Retry)', () => {
+  describe.skip('HTTP Error Handling (No Retry)', () => {
     it('should not retry on HTTP status errors (4xx, 5xx)', async () => {
       // HTTP errors should not trigger retries - they're not network errors
       nock('https://postman-echo.com')
@@ -593,7 +593,7 @@ describe.skip.each([
     });
   });
 
-  describe('Retry Logic Verification', () => {
+  describe.skip('Retry Logic Verification', () => {
     it('has retry logic implemented in code', () => {
       // Both implementations now use the same unified retry logic in HttpReq.ts
       const HttpReqSource = require('fs').readFileSync(
@@ -655,7 +655,7 @@ describe.skip.each([
     });
   });
 
-  describe('URL Query Parameter Parsing', () => {
+  describe.skip('URL Query Parameter Parsing', () => {
     it('should handle URLs with existing query parameters (lines 123-167)', async () => {
       const scope = nock(testBaseUrl)
         .get('/search')

@@ -74,6 +74,54 @@ module.exports = [
     }
   },
 
+  // JavaScript files configuration
+  {
+    files: ['**/*.js'],
+    languageOptions: {
+      ecmaVersion: 2020,
+      sourceType: 'commonjs',
+      globals: {
+        console: 'readonly',
+        require: 'readonly',
+        module: 'readonly',
+        exports: 'readonly',
+        process: 'readonly',
+        Buffer: 'readonly',
+        __dirname: 'readonly',
+        __filename: 'readonly',
+        global: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly'
+      }
+    },
+    plugins: {
+      jest: jest
+    },
+    rules: {
+      // General JavaScript rules (no TypeScript rules)
+      'no-console': 'warn',
+      'no-debugger': 'error',
+      'no-var': 'error',
+      'prefer-const': 'error',
+      'no-duplicate-imports': 'error',
+      'no-unused-expressions': 'error',
+      'eqeqeq': ['error', 'always'],
+      'curly': ['error', 'all'],
+      'no-useless-catch': 'error',
+      'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+
+      // Jest specific rules
+      'jest/expect-expect': 'error',
+      'jest/no-disabled-tests': 'warn',
+      'jest/no-focused-tests': 'error',
+      'jest/no-identical-title': 'error',
+      'jest/prefer-to-have-length': 'warn',
+      'jest/valid-expect': 'error'
+    }
+  },
+
   // Test files get more relaxed rules
   {
     files: ['**/*.test.ts', '**/*.spec.ts'],
@@ -98,6 +146,27 @@ module.exports = [
       '@typescript-eslint/no-unsafe-return': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
       'no-console': 'off'
+    }
+  },
+
+  // JavaScript test files get Jest globals
+  {
+    files: ['**/*.test.js', '**/*.spec.js'],
+    languageOptions: {
+      globals: {
+        describe: 'readonly',
+        it: 'readonly',
+        expect: 'readonly',
+        beforeEach: 'readonly',
+        afterEach: 'readonly',
+        beforeAll: 'readonly',
+        afterAll: 'readonly',
+        jest: 'readonly',
+        test: 'readonly'
+      }
+    },
+    rules: {
+      'no-console': 'off' // Allow console in tests
     }
   },
 

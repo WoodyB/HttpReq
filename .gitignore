@@ -15,6 +15,7 @@ build/
 # TypeScript
 *.js.map
 *.d.ts
+!src/HttpReq.d.ts  # Exception: needed for JavaScript implementation testing
 
 # Testing
 coverage/

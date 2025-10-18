@@ -10,7 +10,7 @@ const config: Config = {
     '^.+\\.js$': 'ts-jest'
   },
   collectCoverageFrom: [
-    'src/**/*.ts',
+    'src/**/*.js',
     '!src/**/*.d.ts'
   ],
   moduleFileExtensions: ['ts', 'js', 'json', 'node'],
@@ -19,6 +19,10 @@ const config: Config = {
     'ts-jest': {
       isolatedModules: true
     }
+  },
+  // Override module resolution for this config
+  moduleNameMapper: {
+    '^../../src/HttpReq$': '<rootDir>/src/HttpReq.js'
   }
 };
 

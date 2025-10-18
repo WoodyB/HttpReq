@@ -25,6 +25,7 @@ declare class HttpReq {
   POST<T = unknown>(url: string, data?: { headers?: object; body?: any }): Promise<{ status: number; body: T }>;
   PUT<T = unknown>(url: string, data?: { headers?: object; body?: any }): Promise<{ status: number; body: T }>;
   PATCH<T = unknown>(url: string, data?: { headers?: object; body?: any }): Promise<{ status: number; body: T }>;
+  DELETE<T = unknown>(url: string, data?: { headers?: object }): Promise<{ status: number; body: T }>;
 }
 
 export = { HttpReq, HttpClientType };

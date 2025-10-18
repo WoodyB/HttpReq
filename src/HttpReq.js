@@ -128,6 +128,36 @@ class AxiosHttpClient {
       throw new Error(`HTTP PATCH request failed: ${error.message}`);
     }
   }
+
+  /**
+   * Performs an HTTP DELETE request using axios.
+   * 
+   * @param {string} url - The URL to request
+   * @param {Object} [data] - Optional request configuration
+   * @param {Object} [data.headers] - Custom headers to include in the request
+   * @returns {Promise<Object>} Promise resolving to response with status, body, and request info
+   */
+  async DELETE(url, data = {}) {
+    const axios = require('axios');
+    
+    try {
+      const config = {};
+      
+      // Add headers if provided
+      if (data && data.headers) {
+        config.headers = data.headers;
+      }
+      
+      const response = await axios.delete(url, config);
+      
+      return {
+        status: response.status,
+        body: response.data
+      };
+    } catch (error) {
+      throw new Error(`HTTP DELETE request failed: ${error.message}`);
+    }
+  }
 }
 
 /**
@@ -267,6 +297,36 @@ class SuperagentHttpClient {
       throw new Error(`HTTP PATCH request failed: ${error.message}`);
     }
   }
+
+  /**
+   * Performs an HTTP DELETE request using superagent.
+   * 
+   * @param {string} url - The URL to request
+   * @param {Object} [data] - Optional request configuration
+   * @param {Object} [data.headers] - Custom headers to include in the request
+   * @returns {Promise<Object>} Promise resolving to response with status, body, and request info
+   */
+  async DELETE(url, data = {}) {
+    const superagent = require('superagent');
+    
+    try {
+      let request = superagent.delete(url);
+      
+      // Add headers if provided
+      if (data && data.headers) {
+        request = request.set(data.headers);
+      }
+      
+      const response = await request;
+      
+      return {
+        status: response.status,
+        body: response.body
+      };
+    } catch (error) {
+      throw new Error(`HTTP DELETE request failed: ${error.message}`);
+    }
+  }
 }
 
 /**
@@ -390,6 +450,18 @@ class HttpReq {
    */
   PATCH(url, data) {
     return this.httpClient.PATCH(url, data);
+  }
+
+  /**
+   * Performs an HTTP DELETE request.
+   * 
+   * @param {string} url - The URL to request
+   * @param {Object} [data] - Optional request configuration
+   * @param {Object} [data.headers] - Custom headers to include in the request
+   * @returns {Promise<Object>} Promise resolving to response with status, body, and request info
+   */
+  DELETE(url, data) {
+    return this.httpClient.DELETE(url, data);
   }
 }
 

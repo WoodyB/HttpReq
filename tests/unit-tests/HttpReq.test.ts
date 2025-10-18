@@ -172,7 +172,7 @@ describe.each([
       expect(scope.isDone()).toBe(true);
     });
 
-    it.skip('should make successful DELETE request', async () => {
+    it('should make successful DELETE request', async () => {
       const scope = nock(testBaseUrl)
         .delete('/users/1')
         .reply(204);
@@ -183,7 +183,7 @@ describe.each([
       expect(scope.isDone()).toBe(true);
     });
 
-    it.skip('should handle URLs without query parameters', async () => {
+    it('should handle URLs without query parameters', async () => {
       const scope = nock(testBaseUrl)
         .get('/simple')
         .reply(responseFixtures.success.status, responseFixtures.success.body);

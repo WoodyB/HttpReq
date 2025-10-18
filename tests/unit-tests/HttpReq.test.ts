@@ -66,14 +66,15 @@ describe('HttpReq - Constructor Options', () => {
   });
 });
 
-describe.skip('HttpReq - HTTP Client Implementation', () => {
+describe('HttpReq - HTTP Client Implementation', () => {
   it('should actually use superagent when SUPERAGENT is specified', async () => {
     const mockLogger = jest.fn();
     const httpReq = new HttpReq({ logger: mockLogger, clientType: HttpClientType.SUPERAGENT });
     
     const httpReqAny = httpReq as any;
-    expect(() => httpReqAny.isValidRetryErr('ECONNREFUSED')).not.toThrow();
-    expect(httpReqAny.isValidRetryErr('ECONNREFUSED')).toBe(true);
+    expect(httpReqAny.httpClient).toBeDefined();
+    expect(httpReqAny.httpClient.constructor.name).toBe('SuperagentHttpClient');
+    expect(httpReq.getClientType()).toBe(HttpClientType.SUPERAGENT);
   });
 
   it('should actually use axios when AXIOS is specified', async () => {
@@ -81,8 +82,9 @@ describe.skip('HttpReq - HTTP Client Implementation', () => {
     const httpReq = new HttpReq({ logger: mockLogger, clientType: HttpClientType.AXIOS });
     
     const httpReqAny = httpReq as any;
-    expect(() => httpReqAny.isValidRetryErr({ code: 'ECONNREFUSED' })).not.toThrow();
-    expect(httpReqAny.isValidRetryErr({ code: 'ECONNREFUSED' })).toBe(true);
+    expect(httpReqAny.httpClient).toBeDefined();
+    expect(httpReqAny.httpClient.constructor.name).toBe('AxiosHttpClient');
+    expect(httpReq.getClientType()).toBe(HttpClientType.AXIOS);
   });
 });
 

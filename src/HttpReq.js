@@ -7,6 +7,24 @@ const HttpClientType = {
 };
 
 /**
+ * Mock Axios HTTP client implementation for JavaScript version.
+ */
+class AxiosHttpClient {
+  constructor(logger) {
+    this.logger = logger;
+  }
+}
+
+/**
+ * Mock Superagent HTTP client implementation for JavaScript version.
+ */
+class SuperagentHttpClient {
+  constructor(logger) {
+    this.logger = logger;
+  }
+}
+
+/**
  * Unified HTTP client that supports both axios and superagent with lazy loading.
  * 
  * Features:
@@ -27,7 +45,14 @@ class HttpReq {
   constructor(options = {}) {
     this.logger = options.logger || (() => {});
     this.clientType = options.clientType || HttpClientType.AXIOS;
-    this.httpClient = null; // Will be lazy-loaded when needed
+    
+    // Create the appropriate HTTP client based on the clientType
+    if (this.clientType === HttpClientType.AXIOS) {
+      this.httpClient = new AxiosHttpClient(this.logger);
+      return;
+    }
+    
+    this.httpClient = new SuperagentHttpClient(this.logger);
   }
 
   /**

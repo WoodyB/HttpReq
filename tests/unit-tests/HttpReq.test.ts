@@ -138,7 +138,7 @@ describe.each([
       expect(scope.isDone()).toBe(true);
     });
 
-    it.skip('should make successful PUT request', async () => {
+    it('should make successful PUT request', async () => {
       const requestBody = { name: 'Updated User', email: 'updated@example.com' };
       
       const scope = nock(testBaseUrl)

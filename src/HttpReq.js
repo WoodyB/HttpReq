@@ -66,6 +66,37 @@ class AxiosHttpClient {
       throw new Error(`HTTP POST request failed: ${error.message}`);
     }
   }
+
+  /**
+   * Performs an HTTP PUT request using axios.
+   * 
+   * @param {string} url - The URL to request
+   * @param {Object} [data] - Optional request configuration
+   * @param {Object} [data.headers] - Custom headers to include in the request
+   * @param {*} [data.body] - Request body data to send
+   * @returns {Promise<Object>} Promise resolving to response with status, body, and request info
+   */
+  async PUT(url, data = {}) {
+    const axios = require('axios');
+    
+    try {
+      const config = {};
+      
+      // Add headers if provided
+      if (data.headers) {
+        config.headers = data.headers;
+      }
+      
+      const response = await axios.put(url, data.body, config);
+      
+      return {
+        status: response.status,
+        body: response.data
+      };
+    } catch (error) {
+      throw new Error(`HTTP PUT request failed: ${error.message}`);
+    }
+  }
 }
 
 /**
@@ -131,6 +162,42 @@ class SuperagentHttpClient {
       };
     } catch (error) {
       throw new Error(`HTTP POST request failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Performs an HTTP PUT request using superagent.
+   * 
+   * @param {string} url - The URL to request
+   * @param {Object} [data] - Optional request configuration
+   * @param {Object} [data.headers] - Custom headers to include in the request
+   * @param {*} [data.body] - Request body data to send
+   * @returns {Promise<Object>} Promise resolving to response with status, body, and request info
+   */
+  async PUT(url, data = {}) {
+    const superagent = require('superagent');
+    
+    try {
+      let request = superagent.put(url);
+      
+      // Add headers if provided
+      if (data.headers) {
+        request = request.set(data.headers);
+      }
+      
+      // Add body if provided
+      if (data.body) {
+        request = request.send(data.body);
+      }
+      
+      const response = await request;
+      
+      return {
+        status: response.status,
+        body: response.body
+      };
+    } catch (error) {
+      throw new Error(`HTTP PUT request failed: ${error.message}`);
     }
   }
 }
@@ -230,6 +297,19 @@ class HttpReq {
    */
   POST(url, data) {
     return this.httpClient.POST(url, data);
+  }
+
+  /**
+   * Performs an HTTP PUT request.
+   * 
+   * @param {string} url - The URL to request
+   * @param {Object} [data] - Optional request configuration
+   * @param {Object} [data.headers] - Custom headers to include in the request
+   * @param {*} [data.body] - Request body data to send
+   * @returns {Promise<Object>} Promise resolving to response with status, body, and request info
+   */
+  PUT(url, data) {
+    return this.httpClient.PUT(url, data);
   }
 }
 

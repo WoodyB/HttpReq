@@ -120,7 +120,7 @@ describe.each([
       expect(scope.isDone()).toBe(true);
     });
 
-    it.skip('should make successful POST request', async () => {
+    it('should make successful POST request', async () => {
       const requestBody = { name: 'New User', email: 'new@example.com' };
       
       const scope = nock(testBaseUrl)

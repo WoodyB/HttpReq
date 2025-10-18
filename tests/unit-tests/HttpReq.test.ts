@@ -155,7 +155,7 @@ describe.each([
       expect(scope.isDone()).toBe(true);
     });
 
-    it.skip('should make successful PATCH request', async () => {
+    it('should make successful PATCH request', async () => {
       const requestBody = { email: 'patched@example.com' };
       
       const scope = nock(testBaseUrl)

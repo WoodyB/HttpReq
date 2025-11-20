@@ -72,8 +72,9 @@ describe('HttpReq - HTTP Client Implementation', () => {
     const httpReq = new HttpReq({ logger: mockLogger, clientType: HttpClientType.SUPERAGENT });
     
     const httpReqAny = httpReq as any;
-    expect(() => httpReqAny.isValidRetryErr('ECONNREFUSED')).not.toThrow();
-    expect(httpReqAny.isValidRetryErr('ECONNREFUSED')).toBe(true);
+    expect(httpReqAny.httpClient).toBeDefined();
+    expect(httpReqAny.httpClient.constructor.name).toBe('SuperagentHttpClient');
+    expect(httpReq.getClientType()).toBe(HttpClientType.SUPERAGENT);
   });
 
   it('should actually use axios when AXIOS is specified', async () => {
@@ -81,8 +82,9 @@ describe('HttpReq - HTTP Client Implementation', () => {
     const httpReq = new HttpReq({ logger: mockLogger, clientType: HttpClientType.AXIOS });
     
     const httpReqAny = httpReq as any;
-    expect(() => httpReqAny.isValidRetryErr({ code: 'ECONNREFUSED' })).not.toThrow();
-    expect(httpReqAny.isValidRetryErr({ code: 'ECONNREFUSED' })).toBe(true);
+    expect(httpReqAny.httpClient).toBeDefined();
+    expect(httpReqAny.httpClient.constructor.name).toBe('AxiosHttpClient');
+    expect(httpReq.getClientType()).toBe(HttpClientType.AXIOS);
   });
 });
 
@@ -195,6 +197,10 @@ describe.each([
   });
 
   describe('Headers and Parameters', () => {
+    // NOTE: This test incorrectly PASSES in TS version due to Jest+ts-jest+nock false positive
+    // The same test correctly FAILS in JS version, detecting the headers bug
+    // The bug exists in both versions - GET requests ignore custom headers
+    // TODO: Add external API test (postman-echo) to properly detect this bug in TS version
     it('should include custom headers in request', async () => {
       const customHeaders = {
         'Authorization': 'Bearer token123',

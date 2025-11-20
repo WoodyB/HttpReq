@@ -4,13 +4,18 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "tsc --project .",
-    "test": "jest --config jest.unit.config.ts --coverage",
+    "build": "tsc --project tsconfig.build.json",
+    "test": "npm run test:ts && npm run test:js && npm run test:integration && npm run test:integration:js",
+    "test:ts": "jest --config jest.unit.config.ts --coverage --coverageDirectory=coverage/ts",
+    "test:js": "jest --config jest.js.config.ts --coverage --coverageDirectory=coverage/js",
+    "test:integration": "jest --config jest.integration.config.ts --coverage --coverageDirectory=coverage/integration",
+    "test:integration:js": "jest --config jest.integration.js.config.ts --coverage --coverageDirectory=coverage/integration-js",
     "test:acceptance": "jest --config jest.acceptance.config.ts --coverage",
     "test:watch": "jest --watch --config jest.unit.config.ts",
     "demo": "node bin/demo.js",
-    "lint": "eslint src tests --ext .ts",
-    "lint:fix": "eslint src tests --ext .ts --fix"
+    "demo:js": "node src/demo.js",
+    "lint": "eslint src tests --ext .ts,.js",
+    "lint:fix": "eslint src tests --ext .ts,.js --fix"
   },
   "author": "Woody Beverley",
   "license": "MIT",

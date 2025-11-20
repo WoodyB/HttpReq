@@ -1,3 +1,6 @@
+// Top-level axios import (will throw immediately if axios is not available)
+const axios = require('axios');
+
 /**
  * HTTP client type enumeration for selecting between axios and superagent implementations.
  */
@@ -24,22 +27,79 @@ class AxiosHttpClient {
    * @returns {Promise<Object>} Promise resolving to response with status, body, and request info
    */
   async GET(url, data = {}) {
-    const axios = require('axios');
+    const { URLSearchParams } = require('url');
+    
+    const startDate = new Date();
     
     try {
-      const config = {};
+      const config = {
+        validateStatus: (status) => status < 600
+      };
       
       // Add headers if provided
       if (data.headers) {
         config.headers = data.headers;
       }
       
-      // Add query parameters if provided
-      if (data.query) {
-        config.params = data.query;
+      // Parse URL and merge query parameters
+      let baseUrl = url;
+      let mergedQuery = {};
+      
+      if (url.includes('?')) {
+        const [base, queryString] = url.split('?');
+        baseUrl = base;
+        
+        // Parse existing query parameters from URL
+        const urlParams = new URLSearchParams(queryString);
+        urlParams.forEach((value, key) => {
+          mergedQuery[key] = value;
+        });
       }
       
-      const response = await axios.get(url, config);
+      // Merge with query object (query object takes precedence)
+      if (data.query) {
+        mergedQuery = { ...mergedQuery, ...data.query };
+      }
+      
+      // Process query values: convert arrays to comma-separated strings, convert primitives to strings
+      const processedQuery = {};
+      for (const [key, value] of Object.entries(mergedQuery)) {
+        // Skip null, undefined, and empty string values
+        if (value === null || value === undefined || value === '') {
+          continue;
+        }
+        
+        // Handle arrays by joining with commas (skip empty arrays)
+        if (Array.isArray(value)) {
+          if (value.length === 0) {
+            continue;
+          }
+          processedQuery[key] = value.join(',');
+        } else {
+          processedQuery[key] = String(value);
+        }
+      }
+      
+      // Add merged query parameters if any exist
+      if (Object.keys(processedQuery).length > 0) {
+        config.params = processedQuery;
+      }
+      
+      const response = await axios.get(baseUrl, config);
+      
+      const formattedResponse = {
+        status: response.status,
+        body: response.data,
+        request: {
+          method: 'GET',
+          url: url,
+          header: data.headers || {},
+          _data: undefined
+        }
+      };
+      
+      const formattedRsp = logRequest(formatRsp(formattedResponse), startDate);
+      this.logger(formattedRsp);
       
       return {
         status: response.status,
@@ -56,21 +116,82 @@ class AxiosHttpClient {
    * @param {string} url - The URL to request
    * @param {Object} [data] - Optional request configuration
    * @param {Object} [data.headers] - Custom headers to include in the request
+   * @param {Object} [data.query] - Query parameters to append to the URL
    * @param {*} [data.body] - Request body data to send
    * @returns {Promise<Object>} Promise resolving to response with status, body, and request info
    */
   async POST(url, data = {}) {
-    const axios = require('axios');
+    const { URLSearchParams } = require('url');
+    
+    const startDate = new Date();
     
     try {
-      const config = {};
+      const config = {
+        validateStatus: (status) => status < 600
+      };
       
       // Add headers if provided
       if (data.headers) {
         config.headers = data.headers;
       }
       
-      const response = await axios.post(url, data.body, config);
+      // Parse URL and merge query parameters
+      let baseUrl = url;
+      let mergedQuery = {};
+      
+      if (url.includes('?')) {
+        const [base, queryString] = url.split('?');
+        baseUrl = base;
+        
+        // Parse existing query parameters from URL
+        const urlParams = new URLSearchParams(queryString);
+        urlParams.forEach((value, key) => {
+          mergedQuery[key] = value;
+        });
+      }
+      
+      // Merge with query object (query object takes precedence)
+      if (data.query) {
+        mergedQuery = { ...mergedQuery, ...data.query };
+      }
+      
+      // Process query values
+      const processedQuery = {};
+      for (const [key, value] of Object.entries(mergedQuery)) {
+        if (value === null || value === undefined || value === '') {
+          continue;
+        }
+        
+        if (Array.isArray(value)) {
+          if (value.length === 0) {
+            continue;
+          }
+          processedQuery[key] = value.join(',');
+        } else {
+          processedQuery[key] = String(value);
+        }
+      }
+      
+      // Add query parameters if any exist
+      if (Object.keys(processedQuery).length > 0) {
+        config.params = processedQuery;
+      }
+      
+      const response = await axios.post(baseUrl, data.body, config);
+      
+      const formattedResponse = {
+        status: response.status,
+        body: response.data,
+        request: {
+          method: 'POST',
+          url: url,
+          header: data.headers || {},
+          _data: data.body
+        }
+      };
+      
+      const formattedRsp = logRequest(formatRsp(formattedResponse), startDate);
+      this.logger(formattedRsp);
       
       return {
         status: response.status,
@@ -87,21 +208,79 @@ class AxiosHttpClient {
    * @param {string} url - The URL to request
    * @param {Object} [data] - Optional request configuration
    * @param {Object} [data.headers] - Custom headers to include in the request
+   * @param {Object} [data.query] - Query parameters to append to the URL
    * @param {*} [data.body] - Request body data to send
    * @returns {Promise<Object>} Promise resolving to response with status, body, and request info
    */
   async PUT(url, data = {}) {
-    const axios = require('axios');
+    const { URLSearchParams } = require('url');
+    
+    const startDate = new Date();
     
     try {
-      const config = {};
+      const config = {
+        validateStatus: (status) => status < 600
+      };
       
       // Add headers if provided
       if (data.headers) {
         config.headers = data.headers;
       }
       
-      const response = await axios.put(url, data.body, config);
+      // Parse URL and merge query parameters
+      let baseUrl = url;
+      let mergedQuery = {};
+      
+      if (url.includes('?')) {
+        const [base, queryString] = url.split('?');
+        baseUrl = base;
+        
+        const urlParams = new URLSearchParams(queryString);
+        urlParams.forEach((value, key) => {
+          mergedQuery[key] = value;
+        });
+      }
+      
+      if (data.query) {
+        mergedQuery = { ...mergedQuery, ...data.query };
+      }
+      
+      // Process query values
+      const processedQuery = {};
+      for (const [key, value] of Object.entries(mergedQuery)) {
+        if (value === null || value === undefined || value === '') {
+          continue;
+        }
+        
+        if (Array.isArray(value)) {
+          if (value.length === 0) {
+            continue;
+          }
+          processedQuery[key] = value.join(',');
+        } else {
+          processedQuery[key] = String(value);
+        }
+      }
+      
+      if (Object.keys(processedQuery).length > 0) {
+        config.params = processedQuery;
+      }
+      
+      const response = await axios.put(baseUrl, data.body, config);
+      
+      const formattedResponse = {
+        status: response.status,
+        body: response.data,
+        request: {
+          method: 'PUT',
+          url: url,
+          header: data.headers || {},
+          _data: data.body
+        }
+      };
+      
+      const formattedRsp = logRequest(formatRsp(formattedResponse), startDate);
+      this.logger(formattedRsp);
       
       return {
         status: response.status,
@@ -118,21 +297,79 @@ class AxiosHttpClient {
    * @param {string} url - The URL to request
    * @param {Object} [data] - Optional request configuration
    * @param {Object} [data.headers] - Custom headers to include in the request
+   * @param {Object} [data.query] - Query parameters to append to the URL
    * @param {*} [data.body] - Request body data to send
    * @returns {Promise<Object>} Promise resolving to response with status, body, and request info
    */
   async PATCH(url, data = {}) {
-    const axios = require('axios');
+    const { URLSearchParams } = require('url');
+    
+    const startDate = new Date();
     
     try {
-      const config = {};
+      const config = {
+        validateStatus: (status) => status < 600
+      };
       
       // Add headers if provided
       if (data.headers) {
         config.headers = data.headers;
       }
       
-      const response = await axios.patch(url, data.body, config);
+      // Parse URL and merge query parameters
+      let baseUrl = url;
+      let mergedQuery = {};
+      
+      if (url.includes('?')) {
+        const [base, queryString] = url.split('?');
+        baseUrl = base;
+        
+        const urlParams = new URLSearchParams(queryString);
+        urlParams.forEach((value, key) => {
+          mergedQuery[key] = value;
+        });
+      }
+      
+      if (data.query) {
+        mergedQuery = { ...mergedQuery, ...data.query };
+      }
+      
+      // Process query values
+      const processedQuery = {};
+      for (const [key, value] of Object.entries(mergedQuery)) {
+        if (value === null || value === undefined || value === '') {
+          continue;
+        }
+        
+        if (Array.isArray(value)) {
+          if (value.length === 0) {
+            continue;
+          }
+          processedQuery[key] = value.join(',');
+        } else {
+          processedQuery[key] = String(value);
+        }
+      }
+      
+      if (Object.keys(processedQuery).length > 0) {
+        config.params = processedQuery;
+      }
+      
+      const response = await axios.patch(baseUrl, data.body, config);
+      
+      const formattedResponse = {
+        status: response.status,
+        body: response.data,
+        request: {
+          method: 'PATCH',
+          url: url,
+          header: data.headers || {},
+          _data: data.body
+        }
+      };
+      
+      const formattedRsp = logRequest(formatRsp(formattedResponse), startDate);
+      this.logger(formattedRsp);
       
       return {
         status: response.status,
@@ -149,20 +386,78 @@ class AxiosHttpClient {
    * @param {string} url - The URL to request
    * @param {Object} [data] - Optional request configuration
    * @param {Object} [data.headers] - Custom headers to include in the request
+   * @param {Object} [data.query] - Query parameters to append to the URL
    * @returns {Promise<Object>} Promise resolving to response with status, body, and request info
    */
   async DELETE(url, data = {}) {
-    const axios = require('axios');
+    const { URLSearchParams } = require('url');
+    
+    const startDate = new Date();
     
     try {
-      const config = {};
+      const config = {
+        validateStatus: (status) => status < 600
+      };
       
       // Add headers if provided
       if (data && data.headers) {
         config.headers = data.headers;
       }
       
-      const response = await axios.delete(url, config);
+      // Parse URL and merge query parameters
+      let baseUrl = url;
+      let mergedQuery = {};
+      
+      if (url.includes('?')) {
+        const [base, queryString] = url.split('?');
+        baseUrl = base;
+        
+        const urlParams = new URLSearchParams(queryString);
+        urlParams.forEach((value, key) => {
+          mergedQuery[key] = value;
+        });
+      }
+      
+      if (data && data.query) {
+        mergedQuery = { ...mergedQuery, ...data.query };
+      }
+      
+      // Process query values
+      const processedQuery = {};
+      for (const [key, value] of Object.entries(mergedQuery)) {
+        if (value === null || value === undefined || value === '') {
+          continue;
+        }
+        
+        if (Array.isArray(value)) {
+          if (value.length === 0) {
+            continue;
+          }
+          processedQuery[key] = value.join(',');
+        } else {
+          processedQuery[key] = String(value);
+        }
+      }
+      
+      if (Object.keys(processedQuery).length > 0) {
+        config.params = processedQuery;
+      }
+      
+      const response = await axios.delete(baseUrl, config);
+      
+      const formattedResponse = {
+        status: response.status,
+        body: response.data,
+        request: {
+          method: 'DELETE',
+          url: url,
+          header: data.headers || {},
+          _data: undefined
+        }
+      };
+      
+      const formattedRsp = logRequest(formatRsp(formattedResponse), startDate);
+      this.logger(formattedRsp);
       
       return {
         status: response.status,
@@ -192,22 +487,86 @@ class SuperagentHttpClient {
    * @returns {Promise<Object>} Promise resolving to response with status, body, and request info
    */
   async GET(url, data = {}) {
-    const superagent = require('superagent');
+    let superagent;
+    try {
+      superagent = require('superagent');
+    } catch (error) {
+      throw new Error(
+        `superagent is required but not found. Please install it with: npm install superagent\n` +
+        `Original error: ${error.message}`
+      );
+    }
+    const { URLSearchParams } = require('url');
+    
+    const startDate = new Date();
     
     try {
-      let request = superagent.get(url);
+      // Parse URL and merge query parameters
+      let baseUrl = url;
+      let mergedQuery = {};
+      
+      if (url.includes('?')) {
+        const [base, queryString] = url.split('?');
+        baseUrl = base;
+        
+        // Parse existing query parameters from URL
+        const urlParams = new URLSearchParams(queryString);
+        urlParams.forEach((value, key) => {
+          mergedQuery[key] = value;
+        });
+      }
+      
+      // Merge with query object (query object takes precedence)
+      if (data.query) {
+        mergedQuery = { ...mergedQuery, ...data.query };
+      }
+      
+      // Process query values: convert arrays to comma-separated strings, convert primitives to strings
+      const processedQuery = {};
+      for (const [key, value] of Object.entries(mergedQuery)) {
+        // Skip null, undefined, and empty string values
+        if (value === null || value === undefined || value === '') {
+          continue;
+        }
+        
+        // Handle arrays by joining with commas (skip empty arrays)
+        if (Array.isArray(value)) {
+          if (value.length === 0) {
+            continue;
+          }
+          processedQuery[key] = value.join(',');
+        } else {
+          processedQuery[key] = String(value);
+        }
+      }
+      
+      let request = superagent.get(baseUrl);
       
       // Add headers if provided
       if (data.headers) {
         request = request.set(data.headers);
       }
       
-      // Add query parameters if provided
-      if (data.query) {
-        request = request.query(data.query);
+      // Add merged query parameters if any exist
+      if (Object.keys(processedQuery).length > 0) {
+        request = request.query(processedQuery);
       }
       
-      const response = await request;
+      const response = await request.ok((res) => res.status < 600);
+      
+      const formattedResponse = {
+        status: response.status,
+        body: response.body,
+        request: {
+          method: 'GET',
+          url: url,
+          header: data.headers || {},
+          _data: undefined
+        }
+      };
+      
+      const formattedRsp = logRequest(formatRsp(formattedResponse), startDate);
+      this.logger(formattedRsp);
       
       return {
         status: response.status,
@@ -224,18 +583,70 @@ class SuperagentHttpClient {
    * @param {string} url - The URL to request
    * @param {Object} [data] - Optional request configuration
    * @param {Object} [data.headers] - Custom headers to include in the request
+   * @param {Object} [data.query] - Query parameters to append to the URL
    * @param {*} [data.body] - Request body data to send
    * @returns {Promise<Object>} Promise resolving to response with status, body, and request info
    */
   async POST(url, data = {}) {
-    const superagent = require('superagent');
+    let superagent;
+    try {
+      superagent = require('superagent');
+    } catch (error) {
+      throw new Error(
+        `superagent is required but not found. Please install it with: npm install superagent\n` +
+        `Original error: ${error.message}`
+      );
+    }
+    const { URLSearchParams } = require('url');
+    
+    const startDate = new Date();
     
     try {
-      let request = superagent.post(url);
+      // Parse URL and merge query parameters
+      let baseUrl = url;
+      let mergedQuery = {};
+      
+      if (url.includes('?')) {
+        const [base, queryString] = url.split('?');
+        baseUrl = base;
+        
+        const urlParams = new URLSearchParams(queryString);
+        urlParams.forEach((value, key) => {
+          mergedQuery[key] = value;
+        });
+      }
+      
+      if (data.query) {
+        mergedQuery = { ...mergedQuery, ...data.query };
+      }
+      
+      // Process query values
+      const processedQuery = {};
+      for (const [key, value] of Object.entries(mergedQuery)) {
+        if (value === null || value === undefined || value === '') {
+          continue;
+        }
+        
+        if (Array.isArray(value)) {
+          if (value.length === 0) {
+            continue;
+          }
+          processedQuery[key] = value.join(',');
+        } else {
+          processedQuery[key] = String(value);
+        }
+      }
+      
+      let request = superagent.post(baseUrl);
       
       // Add headers if provided
       if (data.headers) {
         request = request.set(data.headers);
+      }
+      
+      // Add query parameters if any exist
+      if (Object.keys(processedQuery).length > 0) {
+        request = request.query(processedQuery);
       }
       
       // Add body if provided
@@ -243,7 +654,21 @@ class SuperagentHttpClient {
         request = request.send(data.body);
       }
       
-      const response = await request;
+      const response = await request.ok((res) => res.status < 600);
+      
+      const formattedResponse = {
+        status: response.status,
+        body: response.body,
+        request: {
+          method: 'POST',
+          url: url,
+          header: data.headers || {},
+          _data: data.body
+        }
+      };
+      
+      const formattedRsp = logRequest(formatRsp(formattedResponse), startDate);
+      this.logger(formattedRsp);
       
       return {
         status: response.status,
@@ -260,26 +685,87 @@ class SuperagentHttpClient {
    * @param {string} url - The URL to request
    * @param {Object} [data] - Optional request configuration
    * @param {Object} [data.headers] - Custom headers to include in the request
+   * @param {Object} [data.query] - Query parameters to append to the URL
    * @param {*} [data.body] - Request body data to send
    * @returns {Promise<Object>} Promise resolving to response with status, body, and request info
    */
   async PUT(url, data = {}) {
-    const superagent = require('superagent');
+    let superagent;
+    try {
+      superagent = require('superagent');
+    } catch (error) {
+      throw new Error(
+        `superagent is required but not found. Please install it with: npm install superagent\n` +
+        `Original error: ${error.message}`
+      );
+    }
+    const { URLSearchParams } = require('url');
+    
+    const startDate = new Date();
     
     try {
-      let request = superagent.put(url);
+      let baseUrl = url;
+      let mergedQuery = {};
       
-      // Add headers if provided
+      if (url.includes('?')) {
+        const [base, queryString] = url.split('?');
+        baseUrl = base;
+        
+        const urlParams = new URLSearchParams(queryString);
+        urlParams.forEach((value, key) => {
+          mergedQuery[key] = value;
+        });
+      }
+      
+      if (data.query) {
+        mergedQuery = { ...mergedQuery, ...data.query };
+      }
+      
+      const processedQuery = {};
+      for (const [key, value] of Object.entries(mergedQuery)) {
+        if (value === null || value === undefined || value === '') {
+          continue;
+        }
+        
+        if (Array.isArray(value)) {
+          if (value.length === 0) {
+            continue;
+          }
+          processedQuery[key] = value.join(',');
+        } else {
+          processedQuery[key] = String(value);
+        }
+      }
+      
+      let request = superagent.put(baseUrl);
+      
       if (data.headers) {
         request = request.set(data.headers);
       }
       
-      // Add body if provided
+      if (Object.keys(processedQuery).length > 0) {
+        request = request.query(processedQuery);
+      }
+      
       if (data.body) {
         request = request.send(data.body);
       }
       
-      const response = await request;
+      const response = await request.ok((res) => res.status < 600);
+      
+      const formattedResponse = {
+        status: response.status,
+        body: response.body,
+        request: {
+          method: 'PUT',
+          url: url,
+          header: data.headers || {},
+          _data: data.body
+        }
+      };
+      
+      const formattedRsp = logRequest(formatRsp(formattedResponse), startDate);
+      this.logger(formattedRsp);
       
       return {
         status: response.status,
@@ -296,26 +782,87 @@ class SuperagentHttpClient {
    * @param {string} url - The URL to request
    * @param {Object} [data] - Optional request configuration
    * @param {Object} [data.headers] - Custom headers to include in the request
+   * @param {Object} [data.query] - Query parameters to append to the URL
    * @param {*} [data.body] - Request body data to send
    * @returns {Promise<Object>} Promise resolving to response with status, body, and request info
    */
   async PATCH(url, data = {}) {
-    const superagent = require('superagent');
+    let superagent;
+    try {
+      superagent = require('superagent');
+    } catch (error) {
+      throw new Error(
+        `superagent is required but not found. Please install it with: npm install superagent\n` +
+        `Original error: ${error.message}`
+      );
+    }
+    const { URLSearchParams } = require('url');
+    
+    const startDate = new Date();
     
     try {
-      let request = superagent.patch(url);
+      let baseUrl = url;
+      let mergedQuery = {};
       
-      // Add headers if provided
+      if (url.includes('?')) {
+        const [base, queryString] = url.split('?');
+        baseUrl = base;
+        
+        const urlParams = new URLSearchParams(queryString);
+        urlParams.forEach((value, key) => {
+          mergedQuery[key] = value;
+        });
+      }
+      
+      if (data.query) {
+        mergedQuery = { ...mergedQuery, ...data.query };
+      }
+      
+      const processedQuery = {};
+      for (const [key, value] of Object.entries(mergedQuery)) {
+        if (value === null || value === undefined || value === '') {
+          continue;
+        }
+        
+        if (Array.isArray(value)) {
+          if (value.length === 0) {
+            continue;
+          }
+          processedQuery[key] = value.join(',');
+        } else {
+          processedQuery[key] = String(value);
+        }
+      }
+      
+      let request = superagent.patch(baseUrl);
+      
       if (data.headers) {
         request = request.set(data.headers);
       }
       
-      // Add body if provided
+      if (Object.keys(processedQuery).length > 0) {
+        request = request.query(processedQuery);
+      }
+      
       if (data.body) {
         request = request.send(data.body);
       }
       
-      const response = await request;
+      const response = await request.ok((res) => res.status < 600);
+      
+      const formattedResponse = {
+        status: response.status,
+        body: response.body,
+        request: {
+          method: 'PATCH',
+          url: url,
+          header: data.headers || {},
+          _data: data.body
+        }
+      };
+      
+      const formattedRsp = logRequest(formatRsp(formattedResponse), startDate);
+      this.logger(formattedRsp);
       
       return {
         status: response.status,
@@ -332,20 +879,82 @@ class SuperagentHttpClient {
    * @param {string} url - The URL to request
    * @param {Object} [data] - Optional request configuration
    * @param {Object} [data.headers] - Custom headers to include in the request
+   * @param {Object} [data.query] - Query parameters to append to the URL
    * @returns {Promise<Object>} Promise resolving to response with status, body, and request info
    */
   async DELETE(url, data = {}) {
-    const superagent = require('superagent');
+    let superagent;
+    try {
+      superagent = require('superagent');
+    } catch (error) {
+      throw new Error(
+        `superagent is required but not found. Please install it with: npm install superagent\n` +
+        `Original error: ${error.message}`
+      );
+    }
+    const { URLSearchParams } = require('url');
+    
+    const startDate = new Date();
     
     try {
-      let request = superagent.delete(url);
+      let baseUrl = url;
+      let mergedQuery = {};
       
-      // Add headers if provided
+      if (url.includes('?')) {
+        const [base, queryString] = url.split('?');
+        baseUrl = base;
+        
+        const urlParams = new URLSearchParams(queryString);
+        urlParams.forEach((value, key) => {
+          mergedQuery[key] = value;
+        });
+      }
+      
+      if (data.query) {
+        mergedQuery = { ...mergedQuery, ...data.query };
+      }
+      
+      const processedQuery = {};
+      for (const [key, value] of Object.entries(mergedQuery)) {
+        if (value === null || value === undefined || value === '') {
+          continue;
+        }
+        
+        if (Array.isArray(value)) {
+          if (value.length === 0) {
+            continue;
+          }
+          processedQuery[key] = value.join(',');
+        } else {
+          processedQuery[key] = String(value);
+        }
+      }
+      
+      let request = superagent.delete(baseUrl);
+      
       if (data && data.headers) {
         request = request.set(data.headers);
       }
       
-      const response = await request;
+      if (Object.keys(processedQuery).length > 0) {
+        request = request.query(processedQuery);
+      }
+      
+      const response = await request.ok((res) => res.status < 600);
+      
+      const formattedResponse = {
+        status: response.status,
+        body: response.body,
+        request: {
+          method: 'DELETE',
+          url: url,
+          header: data.headers || {},
+          _data: undefined
+        }
+      };
+      
+      const formattedRsp = logRequest(formatRsp(formattedResponse), startDate);
+      this.logger(formattedRsp);
       
       return {
         status: response.status,
@@ -355,6 +964,96 @@ class SuperagentHttpClient {
       throw new Error(`HTTP DELETE request failed: ${error.message}`);
     }
   }
+}
+
+/**
+ * Obfuscates sensitive data in request objects for logging purposes.
+ * @param {Object} args - Object that may contain sensitive fields
+ * @returns {Object} Object with sensitive fields replaced with placeholder text
+ */
+function obfuscate(args) {
+  const fixedArgs = { ...args };
+  if (args.access_key) {
+    fixedArgs.access_key = 'ACCESS KEY HIDDEN';
+  }
+
+  if (args.password) {
+    fixedArgs.password = 'PASSWORD HIDDEN';
+  }
+
+  return fixedArgs;
+}
+
+/**
+ * Formats a request/response log entry with timing information.
+ * @param {Object} reqObj - Formatted request/response object
+ * @param {Date} startDate - Request start timestamp
+ * @returns {string} Formatted log string with timing
+ */
+function logRequest(reqObj, startDate) {
+  const endDate = new Date();
+  const msec = Math.abs(endDate.getTime() - startDate.getTime());
+
+  const output = [
+    `::: ${startDate.toISOString()} :::`,
+    `${reqObj.req}`,
+    `${reqObj.rsp}`,
+    `::: Response Time: ${msec}ms :::`,
+  ].join('\n');
+  return (`${output}\n`);
+}
+
+/**
+ * Formats a response object for logging with header obfuscation.
+ * @param {Object} res - Response object to format
+ * @returns {Object} Object with formatted request and response strings
+ */
+function formatRsp(res) {
+  let data;
+
+  const output = { req: '', rsp: '' };
+  const regexBracesQuotesCommas = /({\n)|(")|(,)|(\n})/g;
+  const regexBasicAuthToken = /Authorization:\s*Basic.*/gi;
+  const regexBearerAuthToken = /Authorization:\s*Bearer.*/gi;
+  const regexVerificationToken = /verification-token:\s.*/gi;
+
+  let headers = JSON.stringify(res.request.header || {}, null, 4);
+  headers = headers.replace(regexBracesQuotesCommas, '');
+  headers = headers.replace(
+    regexBasicAuthToken,
+    'Authorization: Basic TOKEN HIDDEN',
+  );
+  headers = headers.replace(
+    regexBearerAuthToken,
+    'Authorization: Bearer TOKEN HIDDEN',
+  );
+  headers = headers.replace(
+    regexVerificationToken,
+    'verification-token: TOKEN HIDDEN',
+  );
+
+  output.req = [
+    `${res.request.method} ${res.request.url}\n`,
+    headers,
+  ].join('');
+
+   
+  if (res.request._data) {
+    data = `${JSON.stringify(
+       
+      obfuscate(res.request._data),
+      null,
+      4,
+    )}`;
+    output.req = output.req.concat(`\n${data}`).replace(/\\n/g, '\n');
+  }
+
+  output.rsp = [
+    `RESPONSE: ${res.status}`,
+    `${JSON.stringify(res.body, null, 4)}`,
+  ].join('\n');
+
+  return output;
 }
 
 /**

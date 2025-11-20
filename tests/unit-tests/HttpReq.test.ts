@@ -247,7 +247,7 @@ describe.each([
       expect(scope.isDone()).toBe(true);
     });
 
-    it.skip('should merge URL query parameters with query object (object overrides)', async () => {
+    it('should merge URL query parameters with query object (object overrides)', async () => {
       const scope = nock(testBaseUrl)
         .get('/users')
         .query({ page: '2', limit: '10', active: 'true', sort: 'name' })
@@ -261,7 +261,7 @@ describe.each([
       expect(scope.isDone()).toBe(true);
     });
 
-    it.skip('should handle query object with various data types', async () => {
+    it('should handle query object with various data types', async () => {
       const scope = nock(testBaseUrl)
         .get('/users')
         .query({ 
@@ -285,7 +285,7 @@ describe.each([
       expect(scope.isDone()).toBe(true);
     });
 
-    it.skip('should support query parameters in POST requests', async () => {
+    it('should support query parameters in POST requests', async () => {
       const scope = nock(testBaseUrl)
         .post('/api/submit')
         .query({ filter: 'active', format: 'json' })
@@ -300,7 +300,7 @@ describe.each([
       expect(scope.isDone()).toBe(true);
     });
 
-    it.skip('should skip null and undefined values in query parameters', async () => {
+    it('should skip null and undefined values in query parameters', async () => {
       const scope = nock(testBaseUrl)
         .get('/filtered')
         .query({ active: 'true', category: 'tech' })
@@ -332,7 +332,7 @@ describe.each([
       expect(scope.isDone()).toBe(true);
     });
 
-    it.skip('should support query parameters in PUT, PATCH, and DELETE requests', async () => {
+    it('should support query parameters in PUT, PATCH, and DELETE requests', async () => {
       const putScope = nock(testBaseUrl)
         .put('/items/1')
         .query({ version: '2', validate: 'true' })
@@ -372,7 +372,7 @@ describe.each([
       expect(deleteScope.isDone()).toBe(true);
     });
 
-    it.skip('should handle special characters in query parameters correctly', async () => {
+    it('should handle special characters in query parameters correctly', async () => {
       const scope = nock(testBaseUrl)
         .get('/search')
         .query({ 
@@ -396,7 +396,7 @@ describe.each([
       expect(scope.isDone()).toBe(true);
     });
 
-    it.skip('should handle empty arrays and zero/false values in query parameters', async () => {
+    it('should handle empty arrays and zero/false values in query parameters', async () => {
       const scope = nock(testBaseUrl)
         .get('/edge-cases')
         .query({ 
@@ -422,7 +422,7 @@ describe.each([
     });
   });
 
-  describe.skip('Security and Obfuscation', () => {
+  describe('Security and Obfuscation', () => {
     it('should obfuscate sensitive data in request body', async () => {
       const scope = nock(testBaseUrl)
         .post('/sensitive', {
@@ -504,7 +504,7 @@ describe.each([
     });
   });
 
-  describe.skip('Logging', () => {
+  describe('Logging', () => {
     it('should log request and response details', async () => {
       const scope = nock(testBaseUrl)
         .get('/users')
@@ -544,7 +544,7 @@ describe.each([
     });
   });
 
-  describe.skip('Error Handling', () => {
+  describe('Error Handling', () => {
     it('should handle HTTP error responses', async () => {
       const scope = nock(testBaseUrl)
         .get('/error')
@@ -570,7 +570,7 @@ describe.each([
     });
   });
 
-  describe.skip('HTTP Error Handling (No Retry)', () => {
+  describe('HTTP Error Handling (No Retry)', () => {
     it('should not retry on HTTP status errors (4xx, 5xx)', async () => {
       // HTTP errors should not trigger retries - they're not network errors
       nock('https://postman-echo.com')
@@ -659,7 +659,7 @@ describe.each([
     });
   });
 
-  describe.skip('URL Query Parameter Parsing', () => {
+  describe('URL Query Parameter Parsing', () => {
     it('should handle URLs with existing query parameters (lines 123-167)', async () => {
       const scope = nock(testBaseUrl)
         .get('/search')
@@ -739,7 +739,7 @@ describe.each([
 });
 
 // Separate test suite for dependency loading errors (not part of describe.each)
-describe.skip('Dependency Loading Errors', () => {
+describe('Dependency Loading Errors', () => {
   // Save original modules
   const originalConsoleError = console.error;
 

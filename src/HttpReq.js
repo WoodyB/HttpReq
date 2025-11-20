@@ -20,6 +20,7 @@ class AxiosHttpClient {
    * @param {string} url - The URL to request
    * @param {Object} [data] - Optional request configuration
    * @param {Object} [data.headers] - Custom headers to include in the request
+   * @param {Object} [data.query] - Query parameters to append to the URL
    * @returns {Promise<Object>} Promise resolving to response with status, body, and request info
    */
   async GET(url, data = {}) {
@@ -31,6 +32,11 @@ class AxiosHttpClient {
       // Add headers if provided
       if (data.headers) {
         config.headers = data.headers;
+      }
+      
+      // Add query parameters if provided
+      if (data.query) {
+        config.params = data.query;
       }
       
       const response = await axios.get(url, config);
@@ -182,6 +188,7 @@ class SuperagentHttpClient {
    * @param {string} url - The URL to request
    * @param {Object} [data] - Optional request configuration
    * @param {Object} [data.headers] - Custom headers to include in the request
+   * @param {Object} [data.query] - Query parameters to append to the URL
    * @returns {Promise<Object>} Promise resolving to response with status, body, and request info
    */
   async GET(url, data = {}) {
@@ -193,6 +200,11 @@ class SuperagentHttpClient {
       // Add headers if provided
       if (data.headers) {
         request = request.set(data.headers);
+      }
+      
+      // Add query parameters if provided
+      if (data.query) {
+        request = request.query(data.query);
       }
       
       const response = await request;

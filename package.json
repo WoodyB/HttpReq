@@ -5,9 +5,10 @@
   "main": "index.js",
   "scripts": {
     "build": "tsc --project tsconfig.build.json",
-    "test": "npm run test:ts && npm run test:js",
+    "test": "npm run test:ts && npm run test:js && npm run test:integration",
     "test:ts": "jest --config jest.unit.config.ts --coverage --coverageDirectory=coverage/ts",
     "test:js": "jest --config jest.js.config.ts --coverage --coverageDirectory=coverage/js",
+    "test:integration": "jest --config jest.integration.config.ts --coverage --coverageDirectory=coverage/integration",
     "test:acceptance": "jest --config jest.acceptance.config.ts --coverage",
     "test:watch": "jest --watch --config jest.unit.config.ts",
     "demo": "node bin/demo.js",

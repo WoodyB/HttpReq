@@ -18,14 +18,22 @@ class AxiosHttpClient {
    * Performs an HTTP GET request using axios.
    * 
    * @param {string} url - The URL to request
-   * @param {Object} [_data] - Optional request configuration
+   * @param {Object} [data] - Optional request configuration
+   * @param {Object} [data.headers] - Custom headers to include in the request
    * @returns {Promise<Object>} Promise resolving to response with status, body, and request info
    */
-  async GET(url, _data) {
+  async GET(url, data = {}) {
     const axios = require('axios');
     
     try {
-      const response = await axios.get(url);
+      const config = {};
+      
+      // Add headers if provided
+      if (data.headers) {
+        config.headers = data.headers;
+      }
+      
+      const response = await axios.get(url, config);
       
       return {
         status: response.status,
@@ -172,14 +180,22 @@ class SuperagentHttpClient {
    * Performs an HTTP GET request using superagent.
    * 
    * @param {string} url - The URL to request
-   * @param {Object} [_data] - Optional request configuration
+   * @param {Object} [data] - Optional request configuration
+   * @param {Object} [data.headers] - Custom headers to include in the request
    * @returns {Promise<Object>} Promise resolving to response with status, body, and request info
    */
-  async GET(url, _data) {
+  async GET(url, data = {}) {
     const superagent = require('superagent');
     
     try {
-      const response = await superagent.get(url);
+      let request = superagent.get(url);
+      
+      // Add headers if provided
+      if (data.headers) {
+        request = request.set(data.headers);
+      }
+      
+      const response = await request;
       
       return {
         status: response.status,

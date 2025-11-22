@@ -12,7 +12,6 @@
     "test:integration:js": "jest --config jest.integration.js.config.ts --coverage --coverageDirectory=coverage/integration-js",
     "test:acceptance": "jest --config jest.acceptance.config.ts --coverage --coverageDirectory=coverage/acceptance",
     "test:acceptance:js": "jest --config jest.acceptance.js.config.ts --coverage --coverageDirectory=coverage/acceptance-js",
-    "test:watch": "jest --watch --config jest.unit.config.ts",
     "demo": "node bin/demo.js",
     "demo:js": "node src/demo.js",
     "lint": "eslint src tests --ext .ts,.js",

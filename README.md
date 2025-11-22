@@ -2,21 +2,48 @@
 
 A unified HTTP client that supports both **axios** and **superagent** with lazy loading and identical APIs.
 
+Available in both **TypeScript** and **JavaScript** (ES6+) implementations with full feature parity.
+
 ## Overview
 
 HttpReq is a HTTP client library designed to make RESTful API testing easier by allowing you to use your favorite JavaScript test runner and assertion library.
 It provides:
 
+- **Dual Implementation**: Available as TypeScript (`src/HttpReq.ts`) or JavaScript (`src/HttpReq.js`)
 - **Unified Interface**: Single class supporting both axios and superagent
 - **Lazy Loading**: Only loads the HTTP client you actually use
 - **Dependency Optimization**: Install only axios OR superagent, not both
-- **Single File Distribution**: Copy `HttpReq.ts` directly into your project
+- **Single File Distribution**: Copy either `HttpReq.ts` or `HttpReq.js` directly into your project
 - **Identical Behavior**: Both HTTP clients work exactly the same way
+- **Feature Parity**: TypeScript and JavaScript versions have identical functionality
 
 ## Quick Start
 
+### TypeScript
+
 ```typescript
 import { HttpReq, HttpClientType } from './HttpReq';
+
+// Using defaults (axios with console logging)
+const client = new HttpReq();
+
+// Explicitly choosing HTTP client
+const axiosClient = new HttpReq({ clientType: HttpClientType.AXIOS });
+const superagentClient = new HttpReq({ clientType: HttpClientType.SUPERAGENT });
+
+// Custom logger
+const customClient = new HttpReq({ 
+  logger: (msg) => console.log(`[CUSTOM] ${msg}`) 
+});
+
+// Make requests
+const response = await client.GET('https://api.example.com/data');
+```
+
+### JavaScript
+
+```javascript
+const { HttpReq, HttpClientType } = require('./HttpReq');
 
 // Using defaults (axios with console logging)
 const client = new HttpReq();
@@ -38,7 +65,20 @@ const response = await client.GET('https://api.example.com/data');
 
 ### Option 1: Single File Copy (Recommended)
 
+**For TypeScript Projects:**
+
 1. Copy `src/HttpReq.ts` into your project
+2. Install only the HTTP client you want:
+
+   ```bash
+   npm install axios    # For axios support
+   # OR
+   npm install superagent  # For superagent support
+   ```
+
+**For JavaScript Projects:**
+
+1. Copy `src/HttpReq.js` into your project
 2. Install only the HTTP client you want:
 
    ```bash
@@ -52,26 +92,66 @@ const response = await client.GET('https://api.example.com/data');
 ```bash
 git clone <this-repo>
 npm install  # Installs both axios and superagent for development
+npm run build  # Compiles TypeScript to bin/ directory
 ```
 
 ## Running Tests & Demo
 
+### Complete Test Suite (402 tests)
+
 ```bash
-# Run all unit tests 
-npm run test
+# Run ALL tests (unit, integration, acceptance for both TS and JS)
+npm test  # Runs all 402 tests
+```
 
-# Run all acceptance tests against a real localhost server 
-npm run test:acceptance
+### Individual Test Suites
 
-# Run demo showing all usage patterns
-npm run demo
+**Unit Tests:**
 
-# Compile TypeScript
-npx tsc
+```bash
+npm run test:ts           # 81 TypeScript unit tests
+npm run test:js           # 81 JavaScript unit tests
+```
+
+**Integration Tests (External API):**
+
+```bash
+npm run test:integration     # 14 TypeScript integration tests
+npm run test:integration:js  # 14 JavaScript integration tests
+```
+
+**Acceptance Tests (Local Server):**
+
+```bash
+npm run test:acceptance      # 106 TypeScript acceptance tests
+npm run test:acceptance:js   # 106 JavaScript acceptance tests
+```
+
+### Test Coverage Summary
+
+| Test Type | TypeScript | JavaScript | Total |
+|-----------|-----------|-----------|-------|
+| Unit Tests | 81 | 81 | 162 |
+| Integration Tests | 14 | 14 | 28 |
+| Acceptance Tests | 106 | 106 | 212 |
+| **Total** | **201** | **201** | **402** |
+
+### Demos
+
+```bash
+npm run demo      # Run compiled TypeScript demo (from bin/)
+npm run demo:js   # Run JavaScript demo (from src/)
+```
+
+### Build
+
+```bash
+npm run build     # Compile TypeScript to bin/ directory
 ```
 
 ## Key Features
 
+- ✅ **Dual Implementation**: TypeScript and JavaScript versions with identical functionality
 - ✅ **Unified Interface**: Single `HttpReq` class for both HTTP clients
 - ✅ **Lazy Loading**: HTTP clients load only when first method is called
 - ✅ **HTTP Methods**: GET, POST, PUT, PATCH, DELETE
@@ -80,12 +160,13 @@ npx tsc
 - ✅ **URL Parameter Merging**: Query objects override URL parameters
 - ✅ **Data Type Handling**: Arrays, primitives, null/undefined filtering
 - ✅ **Request/Response Logging**: Detailed logging with timing
-- ✅ **Security**: Automatic obfuscation of passwords, access keys, Basic/Bearer auth tokens
+- ✅ **Security**: Automatic obfuscation of passwords, access keys, ALL Authorization headers (regardless of scheme)
 - ✅ **Dependency Injection**: Custom logger support
 - ✅ **Timeout**: 70-second timeout protection
 - ✅ **Retry Logic**: Automatic retry for network errors (4 attempts max)
 - ✅ **Error Handling**: Graceful error handling and clear messages
 - ✅ **TypeScript**: Full type support with interfaces and enums
+- ✅ **Comprehensive Testing**: 402 tests covering both implementations (unit, integration, acceptance)
 
 ## API Reference
 

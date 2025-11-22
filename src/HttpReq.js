@@ -1130,6 +1130,8 @@ class HttpReq {
    * 
    * @param {string} url - The URL to request
    * @param {Object} [data] - Optional request configuration
+   * @param {Object} [data.headers] - Custom headers to include in the request
+   * @param {Object} [data.query] - Query parameters to append to the URL
    * @returns {Promise<Object>} Promise resolving to response with status, body, and request info
    */
   GET(url, data) {
@@ -1181,6 +1183,7 @@ class HttpReq {
    * @param {string} url - The URL to request
    * @param {Object} [data] - Optional request configuration
    * @param {Object} [data.headers] - Custom headers to include in the request
+   * @param {Object} [data.query] - Query parameters to append to the URL
    * @returns {Promise<Object>} Promise resolving to response with status, body, and request info
    */
   DELETE(url, data) {

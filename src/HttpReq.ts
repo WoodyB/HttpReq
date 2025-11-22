@@ -764,19 +764,14 @@ function formatRsp(res: LoggableResponse): FormattedLogObject {
 
   const output: FormattedLogObject = { req: '', rsp: '' };
   const regexBracesQuotesCommas = /({\n)|(")|(,)|(\n})/g;
-  const regexBasicAuthToken = /Authorization:\s*Basic.*/gi;
-  const regexBearerAuthToken = /Authorization:\s*Bearer.*/gi;
+  const regexAuthToken = /Authorization:\s*.*/gi;
   const regexVerificationToken = /verification-token:\s.*/gi;
 
   let headers: string = JSON.stringify(res.request.header ?? {}, null, 4);
   headers = headers.replace(regexBracesQuotesCommas, '');
   headers = headers.replace(
-    regexBasicAuthToken,
-    'Authorization: Basic TOKEN HIDDEN',
-  );
-  headers = headers.replace(
-    regexBearerAuthToken,
-    'Authorization: Bearer TOKEN HIDDEN',
+    regexAuthToken,
+    'Authorization: TOKEN HIDDEN',
   );
   headers = headers.replace(
     regexVerificationToken,

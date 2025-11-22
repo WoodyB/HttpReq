@@ -1070,7 +1070,8 @@ class HttpReq {
    * @param {string} [options.clientType] - HTTP client type to use (defaults to AXIOS)
    */
   constructor(options = {}) {
-    this.logger = options.logger || (() => {});
+    // eslint-disable-next-line no-console
+    this.logger = options.logger ?? console.log;
     this.clientType = options.clientType || HttpClientType.AXIOS;
     
     // Create the appropriate HTTP client based on the clientType

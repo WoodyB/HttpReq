@@ -12,6 +12,8 @@ const config: Config = {
     'src/**/*.ts',
     '!src/**/*.d.ts'
   ],
+  coverageDirectory: 'coverage/acceptance',
+  coverageReporters: ['text', 'lcov', 'html'],
   moduleFileExtensions: ['ts', 'js', 'json', 'node'],
   verbose: true,
   testTimeout: 30000  // Longer timeout for acceptance tests

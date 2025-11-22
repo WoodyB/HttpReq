@@ -518,6 +518,22 @@ describe.each([
 
       expect(scope.isDone()).toBe(true);
     });
+
+    it('should obfuscate lowercase authorization header', async () => {
+      const scope = nock(testBaseUrl)
+        .get('/lowercase-auth')
+        .reply(responseFixtures.success.status, responseFixtures.success.body);
+
+      await httpReq.GET(`${testBaseUrl}/lowercase-auth`, { 
+        headers: { 'authorization': 'Bearer lowercaseToken123' } 
+      });
+
+      const log = testLogger.getLastLog()!;
+      expect(log).toContain('TOKEN HIDDEN');
+      expect(log).not.toContain('lowercaseToken123');
+
+      expect(scope.isDone()).toBe(true);
+    });
   });
 
   describe('Logging', () => {

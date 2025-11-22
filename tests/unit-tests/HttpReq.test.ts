@@ -819,13 +819,10 @@ describe('Dependency Loading Errors', () => {
     // Import HttpReq after mocking to ensure the mock takes effect
     const { HttpReq: MockedHttpReq, HttpClientType: MockedHttpClientType } = await import('../../src/HttpReq');
     
-    // Create instance with superagent client type
-    const httpReq = new MockedHttpReq({ clientType: MockedHttpClientType.SUPERAGENT });
-
-    // Test that the correct error is thrown
+    // Test that the correct error is thrown during constructor
     let caughtError: Error | null = null;
     try {
-      await httpReq.GET('http://test.com');
+      new MockedHttpReq({ clientType: MockedHttpClientType.SUPERAGENT });
     } catch (error: any) {
       caughtError = error;
     }
@@ -848,17 +845,20 @@ describe('Dependency Loading Errors', () => {
       throw error;
     });
 
-    // The axios import error should be thrown during the dynamic import itself
+    // Now the error should be thrown during constructor (not import)
+    const { HttpReq: MockedHttpReq, HttpClientType: MockedHttpClientType } = await import('../../src/HttpReq');
+    
     let caughtError: Error | null = null;
     try {
-      await import('../../src/HttpReq');
+      new MockedHttpReq({ clientType: MockedHttpClientType.AXIOS });
     } catch (error: any) {
       caughtError = error;
     }
 
     // Verify error was thrown and has correct content
     expect(caughtError).not.toBeNull();
-    expect(caughtError?.message).toContain('Cannot find module \'axios\'');
+    expect(caughtError?.message).toMatch(/axios is required but not found\. Please install it with: npm install axios/);
+    expect(caughtError?.message).toContain('Original error: Cannot find module \'axios\'');
   });
 
   it('should handle generic require errors for superagent', async () => {
@@ -872,12 +872,11 @@ describe('Dependency Loading Errors', () => {
     });
 
     const { HttpReq: MockedHttpReq, HttpClientType: MockedHttpClientType } = await import('../../src/HttpReq');
-    const httpReq = new MockedHttpReq({ clientType: MockedHttpClientType.SUPERAGENT });
 
-    // Test that the correct error is thrown
+    // Test that the correct error is thrown during constructor
     let caughtError: Error | null = null;
     try {
-      await httpReq.GET('http://test.com');
+      new MockedHttpReq({ clientType: MockedHttpClientType.SUPERAGENT });
     } catch (error: any) {
       caughtError = error;
     }
@@ -898,16 +897,19 @@ describe('Dependency Loading Errors', () => {
       throw new Error('Network interface not available');
     });
 
-    // The axios import error should be thrown during the dynamic import itself
+    // Now the error should be thrown during constructor (not import)
+    const { HttpReq: MockedHttpReq, HttpClientType: MockedHttpClientType } = await import('../../src/HttpReq');
+    
     let caughtError: Error | null = null;
     try {
-      await import('../../src/HttpReq');
+      new MockedHttpReq({ clientType: MockedHttpClientType.AXIOS });
     } catch (error: any) {
       caughtError = error;
     }
 
     // Verify error was thrown and has correct content
     expect(caughtError).not.toBeNull();
-    expect(caughtError?.message).toContain('Network interface not available');
+    expect(caughtError?.message).toMatch(/axios is required but not found\. Please install it with: npm install axios/);
+    expect(caughtError?.message).toContain('Original error: Network interface not available');
   });
 });

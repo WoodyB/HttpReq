@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosResponse, AxiosRequestConfig, AxiosError } from 'axios';
+import { AxiosInstance, AxiosResponse, AxiosRequestConfig, AxiosError } from 'axios';
 import * as superagent from 'superagent';
 
 const HTTP_REQUEST = {
@@ -393,22 +393,22 @@ class SuperagentHttpClient implements IHttpClient {
   // eslint-disable-next-line no-unused-vars
   constructor(logger: (_message: string) => void) {
     this.logger = logger;
+    // Load superagent immediately in constructor for fail-fast behavior
+    try {
+      this._request = require('superagent') as typeof superagent;
+    } catch (error: unknown) {
+      const typedError = error as Error;
+      throw new Error(
+        `superagent is required but not found. Please install it with: npm install superagent\n` +
+        `Original error: ${typedError.message}`
+      );
+    }
   }
 
-  // Lazy load superagent - only try to load it when first needed
-  // This allows users to only install the HTTP client they actually want
+  // Get the superagent instance (already loaded in constructor)
   private getRequest(): typeof superagent {
     if (!this._request) {
-      try {
-        // Use dynamic import to avoid bundling superagent unless needed
-        this._request = require('superagent') as typeof superagent;
-      } catch (error: unknown) {
-        const typedError = error as Error;
-        throw new Error(
-          `superagent is required but not found. Please install it with: npm install superagent\n` +
-          `Original error: ${typedError.message}`
-        );
-      }
+      throw new Error('Failed to initialize superagent instance');
     }
     return this._request;
   }
@@ -546,23 +546,25 @@ class AxiosHttpClient implements IHttpClient {
   // eslint-disable-next-line no-unused-vars
   constructor(logger: (_message: string) => void) {
     this.logger = logger;
+    // Load axios immediately in constructor for fail-fast behavior
+    try {
+      const axios = require('axios');
+      this.axiosInstance = axios.create({
+        timeout: HTTP_REQUEST.TIMEOUT,
+      });
+    } catch (error: unknown) {
+      const typedError = error as Error;
+      throw new Error(
+        `axios is required but not found. Please install it with: npm install axios\n` +
+        `Original error: ${typedError.message}`
+      );
+    }
   }
 
-  // Lazy load axios - only try to load it when first needed
-  // This allows users to only install the HTTP client they actually want
+  // Get the axios instance (already loaded in constructor)
   private getAxios(): AxiosInstance {
     if (!this.axiosInstance) {
-      try {
-        this.axiosInstance = axios.create({
-          timeout: HTTP_REQUEST.TIMEOUT,
-        });
-      } catch (error: unknown) {
-        const typedError = error as Error;
-        throw new Error(
-          `axios is required but not found. Please install it with: npm install axios\n` +
-          `Original error: ${typedError.message}`
-        );
-      }
+      throw new Error('Failed to initialize axios instance');
     }
     return this.axiosInstance;
   }

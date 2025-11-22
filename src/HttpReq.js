@@ -1,6 +1,3 @@
-// Top-level axios import (will throw immediately if axios is not available)
-const axios = require('axios');
-
 /**
  * HTTP client type enumeration for selecting between axios and superagent implementations.
  */
@@ -15,6 +12,26 @@ const HttpClientType = {
 class AxiosHttpClient {
   constructor(logger) {
     this.logger = logger;
+    // Load axios immediately in constructor for fail-fast behavior
+    try {
+      this.axiosInstance = require('axios');
+    } catch (error) {
+      throw new Error(
+        `axios is required but not found. Please install it with: npm install axios\n` +
+        `Original error: ${error.message}`
+      );
+    }
+  }
+
+  /**
+   * Get the axios instance (already loaded in constructor).
+   * @returns {Object} axios module
+   */
+  getAxios() {
+    if (!this.axiosInstance) {
+      throw new Error('Failed to initialize axios instance');
+    }
+    return this.axiosInstance;
   }
 
   /**
@@ -85,6 +102,7 @@ class AxiosHttpClient {
         config.params = processedQuery;
       }
       
+      const axios = this.getAxios();
       const response = await axios.get(baseUrl, config);
       
       const formattedResponse = {
@@ -177,6 +195,7 @@ class AxiosHttpClient {
         config.params = processedQuery;
       }
       
+      const axios = this.getAxios();
       const response = await axios.post(baseUrl, data.body, config);
       
       const formattedResponse = {
@@ -266,6 +285,7 @@ class AxiosHttpClient {
         config.params = processedQuery;
       }
       
+      const axios = this.getAxios();
       const response = await axios.put(baseUrl, data.body, config);
       
       const formattedResponse = {
@@ -355,6 +375,7 @@ class AxiosHttpClient {
         config.params = processedQuery;
       }
       
+      const axios = this.getAxios();
       const response = await axios.patch(baseUrl, data.body, config);
       
       const formattedResponse = {
@@ -443,6 +464,7 @@ class AxiosHttpClient {
         config.params = processedQuery;
       }
       
+      const axios = this.getAxios();
       const response = await axios.delete(baseUrl, config);
       
       const formattedResponse = {
@@ -475,6 +497,26 @@ class AxiosHttpClient {
 class SuperagentHttpClient {
   constructor(logger) {
     this.logger = logger;
+    // Load superagent immediately in constructor for fail-fast behavior
+    try {
+      this.superagent = require('superagent');
+    } catch (error) {
+      throw new Error(
+        `superagent is required but not found. Please install it with: npm install superagent\n` +
+        `Original error: ${error.message}`
+      );
+    }
+  }
+
+  /**
+   * Get the superagent instance (already loaded in constructor).
+   * @returns {Object} superagent module
+   */
+  getSuperagent() {
+    if (!this.superagent) {
+      throw new Error('Failed to initialize superagent instance');
+    }
+    return this.superagent;
   }
 
   /**
@@ -487,15 +529,7 @@ class SuperagentHttpClient {
    * @returns {Promise<Object>} Promise resolving to response with status, body, and request info
    */
   async GET(url, data = {}) {
-    let superagent;
-    try {
-      superagent = require('superagent');
-    } catch (error) {
-      throw new Error(
-        `superagent is required but not found. Please install it with: npm install superagent\n` +
-        `Original error: ${error.message}`
-      );
-    }
+    const superagent = this.getSuperagent();
     const { URLSearchParams } = require('url');
     
     const startDate = new Date();
@@ -588,15 +622,7 @@ class SuperagentHttpClient {
    * @returns {Promise<Object>} Promise resolving to response with status, body, and request info
    */
   async POST(url, data = {}) {
-    let superagent;
-    try {
-      superagent = require('superagent');
-    } catch (error) {
-      throw new Error(
-        `superagent is required but not found. Please install it with: npm install superagent\n` +
-        `Original error: ${error.message}`
-      );
-    }
+    const superagent = this.getSuperagent();
     const { URLSearchParams } = require('url');
     
     const startDate = new Date();
@@ -690,15 +716,7 @@ class SuperagentHttpClient {
    * @returns {Promise<Object>} Promise resolving to response with status, body, and request info
    */
   async PUT(url, data = {}) {
-    let superagent;
-    try {
-      superagent = require('superagent');
-    } catch (error) {
-      throw new Error(
-        `superagent is required but not found. Please install it with: npm install superagent\n` +
-        `Original error: ${error.message}`
-      );
-    }
+    const superagent = this.getSuperagent();
     const { URLSearchParams } = require('url');
     
     const startDate = new Date();
@@ -787,15 +805,7 @@ class SuperagentHttpClient {
    * @returns {Promise<Object>} Promise resolving to response with status, body, and request info
    */
   async PATCH(url, data = {}) {
-    let superagent;
-    try {
-      superagent = require('superagent');
-    } catch (error) {
-      throw new Error(
-        `superagent is required but not found. Please install it with: npm install superagent\n` +
-        `Original error: ${error.message}`
-      );
-    }
+    const superagent = this.getSuperagent();
     const { URLSearchParams } = require('url');
     
     const startDate = new Date();
@@ -883,15 +893,7 @@ class SuperagentHttpClient {
    * @returns {Promise<Object>} Promise resolving to response with status, body, and request info
    */
   async DELETE(url, data = {}) {
-    let superagent;
-    try {
-      superagent = require('superagent');
-    } catch (error) {
-      throw new Error(
-        `superagent is required but not found. Please install it with: npm install superagent\n` +
-        `Original error: ${error.message}`
-      );
-    }
+    const superagent = this.getSuperagent();
     const { URLSearchParams } = require('url');
     
     const startDate = new Date();

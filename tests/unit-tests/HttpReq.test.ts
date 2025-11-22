@@ -40,6 +40,23 @@ describe('HttpReq - Constructor Options', () => {
     expect(httpReq.getClientType()).toBe(HttpClientType.AXIOS);
   });
 
+  it('should log to console by default when no logger provided', async () => {
+    const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+    const testBaseUrl = 'https://api.test.com';
+    
+    const scope = nock(testBaseUrl)
+      .get('/test-default-logger')
+      .reply(200, { success: true });
+
+    const httpReq = new HttpReq();
+    await httpReq.GET(`${testBaseUrl}/test-default-logger`);
+
+    expect(consoleSpy).toHaveBeenCalled();
+    expect(scope.isDone()).toBe(true);
+    
+    consoleSpy.mockRestore();
+  });
+
   it('should use custom logger with default client', () => {
     const mockLogger = jest.fn();
     const httpReq = new HttpReq({ logger: mockLogger });

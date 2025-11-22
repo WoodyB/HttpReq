@@ -468,7 +468,7 @@ describe.each([
       const loggedMessage = testLogger.getLastLog()!;
 
       expect(loggedMessage).toContain('verification-token: TOKEN HIDDEN');
-      expect(loggedMessage).toContain('Authorization: Bearer TOKEN HIDDEN');
+      expect(loggedMessage).toContain('Authorization: TOKEN HIDDEN');
       expect(loggedMessage).not.toContain('secret-token');
 
       expect(scope.isDone()).toBe(true);
@@ -488,7 +488,7 @@ describe.each([
       });
 
       const basicLog = testLogger.getLastLog()!;
-      expect(basicLog).toContain('Authorization: Basic TOKEN HIDDEN');
+      expect(basicLog).toContain('Authorization: TOKEN HIDDEN');
       expect(basicLog).not.toContain('dXNlcjpwYXNzd29yZA==');
 
       await httpReq.GET(`${testBaseUrl}/bearer-auth`, { 
@@ -496,11 +496,43 @@ describe.each([
       });
 
       const bearerLog = testLogger.getLastLog()!;
-      expect(bearerLog).toContain('Authorization: Bearer TOKEN HIDDEN');
+      expect(bearerLog).toContain('Authorization: TOKEN HIDDEN');
       expect(bearerLog).not.toContain('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9');
 
       expect(scope1.isDone()).toBe(true);
       expect(scope2.isDone()).toBe(true);
+    });
+
+    it('should obfuscate plain Authorization header without scheme', async () => {
+      const scope = nock(testBaseUrl)
+        .get('/plain-auth')
+        .reply(responseFixtures.success.status, responseFixtures.success.body);
+
+      await httpReq.GET(`${testBaseUrl}/plain-auth`, { 
+        headers: { 'Authorization': 'abc123secrettoken' } 
+      });
+
+      const log = testLogger.getLastLog()!;
+      expect(log).toContain('Authorization: TOKEN HIDDEN');
+      expect(log).not.toContain('abc123secrettoken');
+
+      expect(scope.isDone()).toBe(true);
+    });
+
+    it('should obfuscate lowercase authorization header', async () => {
+      const scope = nock(testBaseUrl)
+        .get('/lowercase-auth')
+        .reply(responseFixtures.success.status, responseFixtures.success.body);
+
+      await httpReq.GET(`${testBaseUrl}/lowercase-auth`, { 
+        headers: { 'authorization': 'Bearer lowercaseToken123' } 
+      });
+
+      const log = testLogger.getLastLog()!;
+      expect(log).toContain('TOKEN HIDDEN');
+      expect(log).not.toContain('lowercaseToken123');
+
+      expect(scope.isDone()).toBe(true);
     });
   });
 

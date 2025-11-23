@@ -22,7 +22,10 @@ describe('HttpReq External API Integration Tests (JavaScript)', () => {
       let httpReq;
       
       beforeEach(() => {
-        httpReq = new HttpReq({ clientType });
+        httpReq = new HttpReq({ 
+          clientType,
+          logger: () => {} // Suppress logging output in tests
+        });
       });
       
       describe('GET with custom headers', () => {

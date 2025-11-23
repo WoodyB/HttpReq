@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-HttpReq is a unified HTTP client library supporting both TypeScript and JavaScript with dual implementations (axios and superagent). The project maintains 404 total tests across both versions.
+HttpReq is a unified HTTP client library supporting both TypeScript and JavaScript with dual implementations (axios and superagent). This is a **copy-paste library** where users copy source files directly into their projects. Users can choose which HTTP client to use and only need to install that one - they don't need to install both.
 
 ## Test-Driven Development (TDD) Workflow
 
@@ -28,15 +28,17 @@ HttpReq is a unified HTTP client library supporting both TypeScript and JavaScri
 
    ```bash
    npm run build              # Compile TypeScript
-   npm test                   # Run all 404 tests
+   npm run lint               # Check for linting errors
+   npm test                   # Run all tests
    ```
 
-   - **Expected outcome:** All tests pass (82+82+14+14+106+106 = 404)
+   - **Expected outcome:** All tests pass
 
 5. **Iterate if Needed**
    - If tests fail, fix the code
    - If new edge cases discovered, add more tests
    - Keep iterating until all tests pass
+   - **IMPORTANT:** Pause after each RED-GREEN-REFACTOR cycle for user review before writing next test
 
 ### Manual Testing (Special Cases Only)
 
@@ -53,26 +55,23 @@ For routine bug fixes and features, TDD with automated tests is sufficient.
 ### Source Files
 
 - `src/HttpReq.ts` - TypeScript implementation (compiled to `bin/src/HttpReq.js`)
-- `src/HttpReq.js` - JavaScript implementation (not transpiled)
+- `src/AxiosAdapter.ts` - Axios adapter for TypeScript
+- `src/SuperagentAdapter.ts` - Superagent adapter for TypeScript
+- `src/IHttpClient.ts` - Interface for HTTP client adapters
+- `src/HttpReq.js` - JavaScript implementation (not transpiled, includes both adapters)
 - `src/demo.ts` - TypeScript demo file
 - `src/demo.js` - JavaScript demo file
 
 ### Test Files
 
 - `tests/unit-tests/HttpReq.test.ts` - Main test file (tests BOTH TS and JS versions)
-- `tests/integration-tests/HttpReq.external-api.test.js` - Integration tests
+- `tests/integration-tests/HttpReq.external-api.test.ts` - TypeScript integration tests
+- `tests/integration-tests/HttpReq.external-api.test.js` - JavaScript integration tests  
 - `tests/acceptance-tests/HttpReq.acceptance.test.ts` - Acceptance tests
 - Test fixtures in `tests/fixtures/`
 - Test utilities: `TestLogger.ts`, `TestServer.ts`
 
-### Test Suites Breakdown (404 Total Tests)
-
-- TypeScript unit tests: 82
-- JavaScript unit tests: 82
-- TypeScript integration tests: 14
-- JavaScript integration tests: 14
-- TypeScript acceptance tests: 106
-- JavaScript acceptance tests: 106
+**Note:** Test suites run across multiple configurations. Test counts will vary as features are added/removed.
 
 ### Key Configuration Files
 
@@ -90,14 +89,23 @@ For routine bug fixes and features, TDD with automated tests is sufficient.
 - JavaScript version uses JSDoc comments for IDE support
 - Both versions must pass identical tests
 
-### HTTP Client Implementations
+### HTTP Client Architecture (Ports and Adapters Pattern)
 
-Each version has two HTTP client implementations:
+**TypeScript Implementation:**
 
-1. **AxiosHttpClient** - Using axios library
-2. **SuperagentHttpClient** - Using superagent library
+- Uses separate adapter files (`AxiosAdapter.ts`, `SuperagentAdapter.ts`)
+- Both implement `IHttpClient` interface
+- Adapters are loaded **dynamically via require()** in the constructor
+- No static imports of adapters - only `IHttpClient` interface is statically imported
+- Users copy only the files they need (HttpReq.ts + IHttpClient.ts + one adapter)
+- Zero compile-time dependencies on HTTP client libraries
 
-Both clients must support identical functionality:
+**JavaScript Implementation:**
+
+- Single file `HttpReq.js` contains both adapter implementations
+- Users choose which HTTP client to install and use
+
+Both implementations support:
 
 - HTTP methods: GET, POST, PUT, PATCH, DELETE
 - Custom headers
@@ -106,12 +114,14 @@ Both clients must support identical functionality:
 - Retry logic (network errors only, not HTTP status errors)
 - Logging with obfuscation of sensitive data
 
-### Lazy Loading Pattern
+### Dynamic Loading Pattern
 
-- HTTP clients are loaded in constructors (fail-fast at instantiation)
-- Users can install only ONE HTTP client (axios OR superagent)
-- Module can be imported even if packages are missing
-- Errors thrown with clear installation instructions
+- HTTP clients are loaded **dynamically via require()** in the constructor
+- TypeScript: Adapters loaded when HttpReq instance is created (not at import time)
+- JavaScript: Adapters loaded when HttpReq instance is created
+- Users choose which HTTP client to use and only need to install that one
+- TypeScript compiles successfully even with adapter files or packages missing
+- Errors thrown with clear installation instructions if missing at runtime
 
 ### Testing Patterns
 
@@ -162,16 +172,15 @@ describe.each([
 # Build TypeScript
 npm run build
 
-# Run all tests (404 total)
+# Run all tests
 npm test
 
 # Run specific test suites
-npm run test:ts              # TypeScript unit tests (82)
-npm run test:js              # JavaScript unit tests (82)
-npm run test:integration     # TS integration (14)
-npm run test:integration:js  # JS integration (14)
-npm run test:acceptance      # TS acceptance (106)
-npm run test:acceptance:js   # JS acceptance (106)
+npm run test:ts              # TypeScript unit tests
+npm run test:js              # JavaScript unit tests
+npm run test:integration     # TS integration tests
+npm run test:integration:js  # JS integration tests
+npm run test:acceptance      # TS acceptance tests
 
 # Linting
 npm run lint
@@ -186,12 +195,13 @@ npm run demo:js   # JavaScript demo
 
 ### Always Maintain
 
-- ✅ All 404 tests passing
+- ✅ All tests passing
 - ✅ TypeScript compilation succeeds
 - ✅ No linting errors
 - ✅ Both TS and JS versions in sync
 - ✅ JSDoc comments in JavaScript match TypeScript types
 - ✅ Sensitive data obfuscation in logs (Authorization headers, passwords, etc.)
+- ✅ Zero compile-time dependencies on HTTP client libraries (TypeScript only imports IHttpClient)
 
 ### JSDoc Requirements for JavaScript
 
@@ -231,7 +241,7 @@ npm run demo:js   # JavaScript demo
    - Run tests until all pass
 
 4. **Verify completion**
-   - All 404 tests pass
+   - All tests pass
    - Build succeeds
    - No linting errors
 
@@ -241,6 +251,9 @@ npm run demo:js   # JavaScript demo
 
 ## Issues Fixed in Recent Sessions
 
+- **Ports and Adapters Architecture**: Split TypeScript into separate adapter files with dynamic loading (Issue #11)
+- **Zero Compile-Time Dependencies**: Removed all static imports of adapters, only IHttpClient interface imported
+- **Copy-Paste Library Philosophy**: Users copy 3 files for TS (HttpReq.ts + IHttpClient.ts + one adapter) or 1 file for JS
 - Issue #13: Obfuscate ALL authorization headers (not just Basic/Bearer)
 - Issue #12: Logger default behavior mismatch (JS used no-op, should use console.log)
 - Issue #11: Fix lazy loading in TypeScript version (removed top-level imports)
@@ -250,9 +263,12 @@ npm run demo:js   # JavaScript demo
 ## Key Learnings
 
 - **TDD is the default approach** - Write tests first, then implement
+- **Pause between cycles** - Stop after each RED-GREEN-REFACTOR cycle for user review before writing the next test
 - **Both versions must stay in sync** - TypeScript AND JavaScript
-- **Manual testing is rare** - Only for special dependency scenarios
-- **Test count should always be 404** - If it changes, investigate why
+- **Manual testing is rare** - Only for special dependency scenarios (like testing copy-paste library behavior)
+- **Dynamic loading via require()** - Prevents compile-time dependencies in TypeScript
+- **Ports and Adapters pattern** - Separate adapter files implementing IHttpClient interface
+- **Copy-paste library philosophy** - Users copy source files and install only what they need
 - **Fail fast is good** - Constructor-time errors are better than runtime errors
 - **User makes git decisions** - Agent prepares code, user commits
 
@@ -261,7 +277,8 @@ npm run demo:js   # JavaScript demo
 When starting a new session, agent should:
 
 1. Read this file to understand workflow
-2. Check current test count: `npm test`
+2. Check current test status: `npm test`
 3. Understand the issue/feature request
 4. Confirm TDD approach before proceeding
 5. Execute: Tests → Code → Verify → Complete
+6. Remember: This is a copy-paste library - users choose which HTTP client to install

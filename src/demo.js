@@ -1,4 +1,4 @@
-import { HttpReq, HttpClientType } from './HttpReq';
+const { HttpReq, HttpClientType } = require('./HttpReq');
 
 const main = async () => {
   console.log('=== HttpReq Demo ===\n');
@@ -52,4 +52,3 @@ const main = async () => {
 };
 
 main().catch(console.error);
-

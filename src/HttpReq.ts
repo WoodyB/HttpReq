@@ -1,5 +1,4 @@
 import { IHttpClient } from './IHttpClient';
-import { SuperagentAdapter } from './SuperagentAdapter';
 
 /**
  * HTTP response object structure returned by all HTTP methods
@@ -100,14 +99,17 @@ export class HttpReq {
     this.clientType = options.clientType ?? HttpClientType.AXIOS;
 
     // Create the appropriate HTTP client adapter
+    // Both adapters are dynamically loaded to avoid compile-time dependencies
+    // This allows users to copy only the files they need
     if (this.clientType === HttpClientType.AXIOS) {
-      // Dynamically load AxiosAdapter only when needed
-      // This allows users to copy only the adapter they want
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const { AxiosAdapter } = require('./AxiosAdapter');
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
       this.httpClient = new AxiosAdapter(this.logger);
     } else {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const { SuperagentAdapter } = require('./SuperagentAdapter');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
       this.httpClient = new SuperagentAdapter(this.logger);
     }
   }

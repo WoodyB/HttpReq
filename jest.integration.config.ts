@@ -4,7 +4,7 @@ const config: Config.InitialOptions = {
   preset: 'ts-jest',
   testEnvironment: 'node',
   testMatch: ['**/tests/integration-tests/**/*.test.ts'],
-  collectCoverage: true,
+  collectCoverage: false,
   coverageDirectory: 'coverage/integration',
   coverageReporters: ['text', 'lcov', 'html'],
   collectCoverageFrom: [

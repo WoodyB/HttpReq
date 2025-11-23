@@ -6,8 +6,9 @@ const config: Config = {
   roots: ['<rootDir>/tests/acceptance-tests'],
   testMatch: ['<rootDir>/tests/acceptance-tests/**/*.test.ts'],
   transform: {
-    '^.+\\.ts$': 'ts-jest'
+    '^.+\.ts$': 'ts-jest'
   },
+  collectCoverage: false,
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/**/*.d.ts'

@@ -6,20 +6,15 @@ const config: Config = {
   roots: ['<rootDir>/tests/unit-tests'],
   testMatch: ['<rootDir>/tests/unit-tests/**/*.test.ts'],
   transform: {
-    '^.+\\.ts$': 'ts-jest',
-    '^.+\\.js$': 'ts-jest'
+    '^.+\.ts$': 'ts-jest',
+    '^.+\.js$': 'ts-jest'
   },
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/**/*.d.ts'
   ],
   moduleFileExtensions: ['ts', 'js', 'json', 'node'],
-  verbose: true,
-  globals: {
-    'ts-jest': {
-      isolatedModules: true
-    }
-  }
+  verbose: true
 };
 
 export default config;

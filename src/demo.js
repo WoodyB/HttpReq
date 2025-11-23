@@ -1,9 +1,9 @@
 const { HttpReq, HttpClientType } = require('./HttpReq');
 
 const main = async () => {
-  console.log('=== HttpReq Demo (JavaScript Source) ===\n');
+  console.log('=== HttpReq Demo ===\n');
 
-  // Example 1: Using defaults (axios with console.log)
+  // // Example 1: Using defaults (axios with console.log)
   console.log('1. Using defaults (axios client, console logging):');
   const httpReq1 = new HttpReq();
   

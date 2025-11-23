@@ -11,7 +11,7 @@ It provides:
 
 - **Dual Implementation**: Available as TypeScript (`src/HttpReq.ts`) or JavaScript (`src/HttpReq.js`)
 - **Unified Interface**: Single class supporting both axios and superagent
-- **Lazy Loading**: Only loads the HTTP client you actually use
+- **Dynamic Loading**: Adapters loaded via require() to avoid compile-time dependencies
 - **Dependency Optimization**: Install only axios OR superagent, not both
 - **Single File Distribution**: Copy either `HttpReq.ts` or `HttpReq.js` directly into your project
 - **Identical Behavior**: Both HTTP clients work exactly the same way
@@ -63,29 +63,69 @@ const response = await client.GET('https://api.example.com/data');
 
 ## Installation Options
 
-### Option 1: Single File Copy (Recommended)
+### Option 1: Copy-Paste Library (Recommended)
+
+This is a **copy-paste library** - you copy the source files directly into your project and customize as needed. You only need to install **one** HTTP client library, not both.
 
 **For TypeScript Projects:**
 
-1. Copy `src/HttpReq.ts` into your project
-2. Install only the HTTP client you want:
+1. Copy these 3 files into your project:
+   - `src/HttpReq.ts` - Main HTTP client class
+   - `src/IHttpClient.ts` - Interface definition
+   - `src/AxiosAdapter.ts` **OR** `src/SuperagentAdapter.ts` - Choose one adapter
+
+2. Install only the HTTP client you chose:
 
    ```bash
-   npm install axios    # For axios support
-   # OR
-   npm install superagent  # For superagent support
+   # If you copied AxiosAdapter.ts
+   npm install axios
+   
+   # OR if you copied SuperagentAdapter.ts
+   npm install superagent
+   ```
+
+3. Use in your code:
+
+   ```typescript
+   import { HttpReq, HttpClientType } from './HttpReq';
+   
+   // If using axios (default)
+   const client = new HttpReq();
+   
+   // If using superagent, specify the client type
+   const client = new HttpReq({ clientType: HttpClientType.SUPERAGENT });
    ```
 
 **For JavaScript Projects:**
 
-1. Copy `src/HttpReq.js` into your project
+1. Copy `src/HttpReq.js` into your project (single file, includes both adapters)
+
 2. Install only the HTTP client you want:
 
    ```bash
-   npm install axios    # For axios support
+   npm install axios    # For axios support (default)
    # OR
    npm install superagent  # For superagent support
    ```
+
+3. Use in your code:
+
+   ```javascript
+   const { HttpReq, HttpClientType } = require('./HttpReq');
+   
+   // If using axios (default)
+   const client = new HttpReq();
+   
+   // If using superagent, specify the client type
+   const client = new HttpReq({ clientType: HttpClientType.SUPERAGENT });
+   ```
+
+**Important Notes:**
+
+- The TypeScript version uses **dynamic loading** - adapters are loaded only when needed
+- You can safely delete the adapter you don't need (e.g., delete `SuperagentAdapter.ts` if using axios)
+- TypeScript will compile successfully with only one adapter present
+- If you try to use a client type without its adapter file or package installed, you'll get a clear runtime error
 
 ### Option 2: Full Project
 
@@ -97,11 +137,11 @@ npm run build  # Compiles TypeScript to bin/ directory
 
 ## Running Tests & Demo
 
-### Complete Test Suite (402 tests)
+### Complete Test Suite
 
 ```bash
 # Run ALL tests (unit, integration, acceptance for both TS and JS)
-npm test  # Runs all 402 tests
+npm test
 ```
 
 ### Individual Test Suites
@@ -109,32 +149,23 @@ npm test  # Runs all 402 tests
 **Unit Tests:**
 
 ```bash
-npm run test:ts           # 81 TypeScript unit tests
-npm run test:js           # 81 JavaScript unit tests
+npm run test:ts           # TypeScript unit tests
+npm run test:js           # JavaScript unit tests
 ```
 
 **Integration Tests (External API):**
 
 ```bash
-npm run test:integration     # 14 TypeScript integration tests
-npm run test:integration:js  # 14 JavaScript integration tests
+npm run test:integration     # TypeScript integration tests
+npm run test:integration:js  # JavaScript integration tests
 ```
 
 **Acceptance Tests (Local Server):**
 
 ```bash
-npm run test:acceptance      # 106 TypeScript acceptance tests
-npm run test:acceptance:js   # 106 JavaScript acceptance tests
+npm run test:acceptance      # TypeScript acceptance tests
+npm run test:acceptance:js   # JavaScript acceptance tests
 ```
-
-### Test Coverage Summary
-
-| Test Type | TypeScript | JavaScript | Total |
-|-----------|-----------|-----------|-------|
-| Unit Tests | 81 | 81 | 162 |
-| Integration Tests | 14 | 14 | 28 |
-| Acceptance Tests | 106 | 106 | 212 |
-| **Total** | **201** | **201** | **402** |
 
 ### Demos
 
@@ -153,7 +184,7 @@ npm run build     # Compile TypeScript to bin/ directory
 
 - ✅ **Dual Implementation**: TypeScript and JavaScript versions with identical functionality
 - ✅ **Unified Interface**: Single `HttpReq` class for both HTTP clients
-- ✅ **Lazy Loading**: HTTP clients load only when first method is called
+- ✅ **Dynamic Loading**: Adapters loaded at runtime via require() to eliminate compile-time dependencies
 - ✅ **HTTP Methods**: GET, POST, PUT, PATCH, DELETE
 - ✅ **Custom Headers**: Full header support
 - ✅ **Query Parameters**: Advanced query object support with type conversion
@@ -166,7 +197,7 @@ npm run build     # Compile TypeScript to bin/ directory
 - ✅ **Retry Logic**: Automatic retry for network errors (4 attempts max)
 - ✅ **Error Handling**: Graceful error handling and clear messages
 - ✅ **TypeScript**: Full type support with interfaces and enums
-- ✅ **Comprehensive Testing**: 402 tests covering both implementations (unit, integration, acceptance)
+- ✅ **Comprehensive Testing**: Full test coverage for both implementations (unit, integration, acceptance)
 
 ## API Reference
 
@@ -234,11 +265,11 @@ axios is required but not found. Please install it with: npm install axios
 Original error: Cannot find module 'axios'
 ```
 
-## Lazy Loading Benefits
+## Dynamic Loading Benefits
 
-- **Reduced Bundle Size**: Only load what you use
-- **Faster Startup**: No upfront loading of unused HTTP clients
-- **Flexible Deployment**: Copy single file without dependency bloat
+- **No Compile-Time Dependencies**: TypeScript compiles without requiring both HTTP client libraries
+- **Flexible Deployment**: Copy only the adapter files you need
+- **Runtime Loading**: Adapters loaded via require() when HttpReq is instantiated
 - **Clear Errors**: Immediate feedback when dependencies are missing
 
 ### Advanced Query Parameters
@@ -266,7 +297,6 @@ MIT License
 ## History
 
 I've been using different versions of this library for years. I always customize to fit the environment that it's in for a particular company. It is usually not standalone but part of a larger test utility library. While isolating for a week due to COVID I had a colleague reach out to me about REST API testing. She was working for a company that really needed to automate their API testing that they had brought back in house after ending a contract with a third party to develop and maintain it. As the technical lead for the project it was her problem now. Having worked together she remembered the good API testing we had at a former company and wanted to know how to go about it. I told her I was bored out of my mind and had just purchased a new MacBook Air and needed to make sure I had it all configured to be my new development machine anyway so I would be happy to make something she could use and expand on. That original code is listed below.
-
 
 I have been experimenting a lot with AI assisted development lately especially now that AI agents are available in GitHub and VS Code. I'm not interested in so-called "vibe coding" when it comes to anything other than just playing around. However, I see AI assisted development as a huge innovation. The trick is taming the AI so that it will do what a good software engineer does and not go wild changing files all over the place. I thought of this code to use in an experiment to see if I can get the agent, "Claude Sonnet in CoPilot," to behave and develop the way I would while expanding this code into something more useful. It took some work and it did go astray a few times but I like the results. I actually had the agent doing TDD which is more than I can usually get my colleagues to do :-).
 

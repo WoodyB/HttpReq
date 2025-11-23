@@ -9,7 +9,7 @@ const HttpClientType = {
 /**
  * Axios HTTP client implementation for JavaScript version.
  */
-class AxiosHttpClient {
+class AxiosAdapter {
   constructor(logger) {
     this.logger = logger;
     // Load axios immediately in constructor for fail-fast behavior
@@ -494,7 +494,7 @@ class AxiosHttpClient {
 /**
  * Superagent HTTP client implementation for JavaScript version.
  */
-class SuperagentHttpClient {
+class SuperagentAdapter {
   constructor(logger) {
     this.logger = logger;
     // Load superagent immediately in constructor for fail-fast behavior
@@ -1078,11 +1078,11 @@ class HttpReq {
     
     // Create the appropriate HTTP client based on the clientType
     if (this.clientType === HttpClientType.AXIOS) {
-      this.httpClient = new AxiosHttpClient(this.logger);
+      this.httpClient = new AxiosAdapter(this.logger);
       return;
     }
     
-    this.httpClient = new SuperagentHttpClient(this.logger);
+    this.httpClient = new SuperagentAdapter(this.logger);
   }
 
   /**

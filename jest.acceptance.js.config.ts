@@ -3,7 +3,7 @@ import type { Config } from '@jest/types';
 const config: Config.InitialOptions = {
   testEnvironment: 'node',
   testMatch: ['**/tests/acceptance-tests/**/*.test.js'],
-  collectCoverage: true,
+  collectCoverage: false,
   coverageDirectory: 'coverage/acceptance-js',
   coverageReporters: ['text', 'lcov', 'html'],
   collectCoverageFrom: [

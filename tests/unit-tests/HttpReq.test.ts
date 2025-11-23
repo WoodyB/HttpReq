@@ -90,7 +90,7 @@ describe('HttpReq - HTTP Client Implementation', () => {
     
     const httpReqAny = httpReq as any;
     expect(httpReqAny.httpClient).toBeDefined();
-    expect(httpReqAny.httpClient.constructor.name).toBe('SuperagentHttpClient');
+    expect(httpReqAny.httpClient.constructor.name).toBe('SuperagentAdapter');
     expect(httpReq.getClientType()).toBe(HttpClientType.SUPERAGENT);
   });
 
@@ -100,7 +100,7 @@ describe('HttpReq - HTTP Client Implementation', () => {
     
     const httpReqAny = httpReq as any;
     expect(httpReqAny.httpClient).toBeDefined();
-    expect(httpReqAny.httpClient.constructor.name).toBe('AxiosHttpClient');
+    expect(httpReqAny.httpClient.constructor.name).toBe('AxiosAdapter');
     expect(httpReq.getClientType()).toBe(HttpClientType.AXIOS);
   });
 });
@@ -648,17 +648,28 @@ describe.each([
 
   describe('Retry Logic Verification', () => {
     it('has retry logic implemented in code', () => {
-      // Both implementations now use the same unified retry logic in HttpReq.ts
-      const HttpReqSource = require('fs').readFileSync(
-        require('path').resolve(__dirname, '../../src/HttpReq.ts'), 
+      // Retry logic is now in the adapter classes (AxiosAdapter.ts and SuperagentAdapter.ts)
+      const AxiosAdapterSource = require('fs').readFileSync(
+        require('path').resolve(__dirname, '../../src/AxiosAdapter.ts'), 
+        'utf8'
+      );
+      const SuperagentAdapterSource = require('fs').readFileSync(
+        require('path').resolve(__dirname, '../../src/SuperagentAdapter.ts'), 
         'utf8'
       );
       
-      expect(HttpReqSource).toContain('for (let attempt = 0; attempt <= 3; attempt++)');
-      expect(HttpReqSource).toContain('isValidRetryErr');
-      expect(HttpReqSource).toContain('ECONNREFUSED');
-      expect(HttpReqSource).toContain('ETIMEDOUT');
-      expect(HttpReqSource).toContain('ECONNRESET');
+      // Check both adapters have retry logic
+      expect(AxiosAdapterSource).toContain('for (let attempt = 0; attempt <= 3; attempt++)');
+      expect(AxiosAdapterSource).toContain('isValidRetryErr');
+      expect(AxiosAdapterSource).toContain('ECONNREFUSED');
+      expect(AxiosAdapterSource).toContain('ETIMEDOUT');
+      expect(AxiosAdapterSource).toContain('ECONNRESET');
+      
+      expect(SuperagentAdapterSource).toContain('for (let attempt = 0; attempt <= 3; attempt++)');
+      expect(SuperagentAdapterSource).toContain('isValidRetryErr');
+      expect(SuperagentAdapterSource).toContain('ECONNREFUSED');
+      expect(SuperagentAdapterSource).toContain('ETIMEDOUT');
+      expect(SuperagentAdapterSource).toContain('ECONNRESET');
     });
 
     it('validates retryable error codes correctly', () => {

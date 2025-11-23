@@ -190,7 +190,9 @@ module.exports = [
       'coverage/**',
       'eslint.config.js',
       'jest.config.js',
-      '**/*.d.ts'
+      '**/*.d.ts',
+      'src/**/*.js',  // Ignore compiled JS files in src
+      '!src/HttpReq.js.notused'  // But don't ignore the notused file if we want to keep it
     ]
   }
 ];

@@ -23,11 +23,6 @@ const config: Config.InitialOptions = {
   // Override module resolution to test the JavaScript version
   moduleNameMapper: {
     '^../../src/HttpReq$': '<rootDir>/src/HttpReq.js'
-  },
-  globals: {
-    'ts-jest': {
-      isolatedModules: true
-    }
   }
 };
 

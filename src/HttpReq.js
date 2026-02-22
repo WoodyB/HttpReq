@@ -35,6 +35,35 @@ class AxiosAdapter {
   }
 
   /**
+   * Determines if an error represents a network condition that warrants a retry.
+   * @param {string|Error|Object} error - Error to check
+   * @returns {boolean} True if the error should trigger a retry
+   */
+  isValidRetryErr(error) {
+    const validRetryErrs = [
+      'ECONNREFUSED',
+      'ECONNRESET',
+      'ETIMEDOUT',
+      'EADDRINFO',
+      'ESOCKETTIMEDOUT',
+    ];
+
+    if (typeof error === 'string') {
+      return validRetryErrs.includes(error);
+    }
+
+    if (error && typeof error === 'object' && 'code' in error && error.code) {
+      return validRetryErrs.includes(error.code);
+    }
+
+    if (error && typeof error === 'object' && 'message' in error) {
+      return validRetryErrs.includes(error.message);
+    }
+
+    return false;
+  }
+
+  /**
    * Performs an HTTP GET request using axios.
    * 
    * @param {string} url - The URL to request
@@ -47,84 +76,89 @@ class AxiosAdapter {
     const { URLSearchParams } = require('url');
     
     const startDate = new Date();
-    
-    try {
-      const config = {
-        validateStatus: (status) => status < 600
-      };
-      
-      // Add headers if provided
-      if (data.headers) {
-        config.headers = data.headers;
+    const config = {
+      validateStatus: (status) => status < 600
+    };
+
+    // Add headers if provided
+    if (data.headers) {
+      config.headers = data.headers;
+    }
+
+    // Parse URL and merge query parameters
+    let baseUrl = url;
+    let mergedQuery = {};
+
+    if (url.includes('?')) {
+      const [base, queryString] = url.split('?');
+      baseUrl = base;
+
+      // Parse existing query parameters from URL
+      const urlParams = new URLSearchParams(queryString);
+      urlParams.forEach((value, key) => {
+        mergedQuery[key] = value;
+      });
+    }
+
+    // Merge with query object (query object takes precedence)
+    if (data.query) {
+      mergedQuery = { ...mergedQuery, ...data.query };
+    }
+
+    // Process query values: convert arrays to comma-separated strings, convert primitives to strings
+    const processedQuery = {};
+    for (const [key, value] of Object.entries(mergedQuery)) {
+      // Skip null, undefined, and empty string values
+      if (value === null || value === undefined || value === '') {
+        continue;
       }
-      
-      // Parse URL and merge query parameters
-      let baseUrl = url;
-      let mergedQuery = {};
-      
-      if (url.includes('?')) {
-        const [base, queryString] = url.split('?');
-        baseUrl = base;
-        
-        // Parse existing query parameters from URL
-        const urlParams = new URLSearchParams(queryString);
-        urlParams.forEach((value, key) => {
-          mergedQuery[key] = value;
-        });
-      }
-      
-      // Merge with query object (query object takes precedence)
-      if (data.query) {
-        mergedQuery = { ...mergedQuery, ...data.query };
-      }
-      
-      // Process query values: convert arrays to comma-separated strings, convert primitives to strings
-      const processedQuery = {};
-      for (const [key, value] of Object.entries(mergedQuery)) {
-        // Skip null, undefined, and empty string values
-        if (value === null || value === undefined || value === '') {
+
+      // Handle arrays by joining with commas (skip empty arrays)
+      if (Array.isArray(value)) {
+        if (value.length === 0) {
           continue;
         }
-        
-        // Handle arrays by joining with commas (skip empty arrays)
-        if (Array.isArray(value)) {
-          if (value.length === 0) {
-            continue;
+        processedQuery[key] = value.join(',');
+      } else {
+        processedQuery[key] = String(value);
+      }
+    }
+
+    // Add merged query parameters if any exist
+    if (Object.keys(processedQuery).length > 0) {
+      config.params = processedQuery;
+    }
+
+    const axios = this.getAxios();
+
+    for (let attempt = 0; attempt <= 3; attempt++) {
+      try {
+        const response = await axios.get(baseUrl, config);
+
+        const formattedResponse = {
+          status: response.status,
+          body: response.data,
+          request: {
+            method: 'GET',
+            url: url,
+            header: data.headers || {},
+            _data: undefined
           }
-          processedQuery[key] = value.join(',');
-        } else {
-          processedQuery[key] = String(value);
+        };
+
+        const formattedRsp = logRequest(formatRsp(formattedResponse), startDate);
+        this.logger(formattedRsp);
+
+        return {
+          status: response.status,
+          body: response.data
+        };
+      } catch (error) {
+        if (attempt < 3 && this.isValidRetryErr(error)) {
+          continue;
         }
+        throw error;
       }
-      
-      // Add merged query parameters if any exist
-      if (Object.keys(processedQuery).length > 0) {
-        config.params = processedQuery;
-      }
-      
-      const axios = this.getAxios();
-      const response = await axios.get(baseUrl, config);
-      
-      const formattedResponse = {
-        status: response.status,
-        body: response.data,
-        request: {
-          method: 'GET',
-          url: url,
-          header: data.headers || {},
-          _data: undefined
-        }
-      };
-      
-      const formattedRsp = logRequest(formatRsp(formattedResponse), startDate);
-      this.logger(formattedRsp);
-      
-      return {
-        status: response.status,
-        body: response.data
-      };
-    } catch (error) {
-      throw new Error(`HTTP GET request failed: ${error.message}`);
     }
   }
 
@@ -195,29 +229,39 @@ class AxiosAdapter {
         config.params = processedQuery;
       }
       
-      const axios = this.getAxios();
-      const response = await axios.post(baseUrl, data.body, config);
-      
-      const formattedResponse = {
-        status: response.status,
-        body: response.data,
-        request: {
-          method: 'POST',
-          url: url,
-          header: data.headers || {},
-          _data: data.body
+    const axios = this.getAxios();
+
+    for (let attempt = 0; attempt <= 3; attempt++) {
+      try {
+        const response = await axios.post(baseUrl, data.body, config);
+
+        const formattedResponse = {
+          status: response.status,
+          body: response.data,
+          request: {
+            method: 'POST',
+            url: url,
+            header: data.headers || {},
+            _data: data.body
+          }
+        };
+
+        const formattedRsp = logRequest(formatRsp(formattedResponse), startDate);
+        this.logger(formattedRsp);
+
+        return {
+          status: response.status,
+          body: response.data
+        };
+      } catch (error) {
+        if (attempt < 3 && this.isValidRetryErr(error)) {
+          continue;
         }
-      };
-      
-      const formattedRsp = logRequest(formatRsp(formattedResponse), startDate);
-      this.logger(formattedRsp);
-      
-      return {
-        status: response.status,
-        body: response.data
-      };
+        throw error;
+      }
+    }
     } catch (error) {
-      throw new Error(`HTTP POST request failed: ${error.message}`);
+      throw error;
     }
   }
 
@@ -285,29 +329,39 @@ class AxiosAdapter {
         config.params = processedQuery;
       }
       
-      const axios = this.getAxios();
-      const response = await axios.put(baseUrl, data.body, config);
-      
-      const formattedResponse = {
-        status: response.status,
-        body: response.data,
-        request: {
-          method: 'PUT',
-          url: url,
-          header: data.headers || {},
-          _data: data.body
+    const axios = this.getAxios();
+
+    for (let attempt = 0; attempt <= 3; attempt++) {
+      try {
+        const response = await axios.put(baseUrl, data.body, config);
+
+        const formattedResponse = {
+          status: response.status,
+          body: response.data,
+          request: {
+            method: 'PUT',
+            url: url,
+            header: data.headers || {},
+            _data: data.body
+          }
+        };
+
+        const formattedRsp = logRequest(formatRsp(formattedResponse), startDate);
+        this.logger(formattedRsp);
+
+        return {
+          status: response.status,
+          body: response.data
+        };
+      } catch (error) {
+        if (attempt < 3 && this.isValidRetryErr(error)) {
+          continue;
         }
-      };
-      
-      const formattedRsp = logRequest(formatRsp(formattedResponse), startDate);
-      this.logger(formattedRsp);
-      
-      return {
-        status: response.status,
-        body: response.data
-      };
+        throw error;
+      }
+    }
     } catch (error) {
-      throw new Error(`HTTP PUT request failed: ${error.message}`);
+      throw error;
     }
   }
 
@@ -375,29 +429,39 @@ class AxiosAdapter {
         config.params = processedQuery;
       }
       
-      const axios = this.getAxios();
-      const response = await axios.patch(baseUrl, data.body, config);
-      
-      const formattedResponse = {
-        status: response.status,
-        body: response.data,
-        request: {
-          method: 'PATCH',
-          url: url,
-          header: data.headers || {},
-          _data: data.body
+    const axios = this.getAxios();
+
+    for (let attempt = 0; attempt <= 3; attempt++) {
+      try {
+        const response = await axios.patch(baseUrl, data.body, config);
+
+        const formattedResponse = {
+          status: response.status,
+          body: response.data,
+          request: {
+            method: 'PATCH',
+            url: url,
+            header: data.headers || {},
+            _data: data.body
+          }
+        };
+
+        const formattedRsp = logRequest(formatRsp(formattedResponse), startDate);
+        this.logger(formattedRsp);
+
+        return {
+          status: response.status,
+          body: response.data
+        };
+      } catch (error) {
+        if (attempt < 3 && this.isValidRetryErr(error)) {
+          continue;
         }
-      };
-      
-      const formattedRsp = logRequest(formatRsp(formattedResponse), startDate);
-      this.logger(formattedRsp);
-      
-      return {
-        status: response.status,
-        body: response.data
-      };
+        throw error;
+      }
+    }
     } catch (error) {
-      throw new Error(`HTTP PATCH request failed: ${error.message}`);
+      throw error;
     }
   }
 
@@ -464,29 +528,39 @@ class AxiosAdapter {
         config.params = processedQuery;
       }
       
-      const axios = this.getAxios();
-      const response = await axios.delete(baseUrl, config);
-      
-      const formattedResponse = {
-        status: response.status,
-        body: response.data,
-        request: {
-          method: 'DELETE',
-          url: url,
-          header: data.headers || {},
-          _data: undefined
+    const axios = this.getAxios();
+
+    for (let attempt = 0; attempt <= 3; attempt++) {
+      try {
+        const response = await axios.delete(baseUrl, config);
+
+        const formattedResponse = {
+          status: response.status,
+          body: response.data,
+          request: {
+            method: 'DELETE',
+            url: url,
+            header: data.headers || {},
+            _data: undefined
+          }
+        };
+
+        const formattedRsp = logRequest(formatRsp(formattedResponse), startDate);
+        this.logger(formattedRsp);
+
+        return {
+          status: response.status,
+          body: response.data
+        };
+      } catch (error) {
+        if (attempt < 3 && this.isValidRetryErr(error)) {
+          continue;
         }
-      };
-      
-      const formattedRsp = logRequest(formatRsp(formattedResponse), startDate);
-      this.logger(formattedRsp);
-      
-      return {
-        status: response.status,
-        body: response.data
-      };
+        throw error;
+      }
+    }
     } catch (error) {
-      throw new Error(`HTTP DELETE request failed: ${error.message}`);
+      throw error;
     }
   }
 }
@@ -517,6 +591,35 @@ class SuperagentAdapter {
       throw new Error('Failed to initialize superagent instance');
     }
     return this.superagent;
+  }
+
+  /**
+   * Determines if an error represents a network condition that warrants a retry.
+   * @param {string|Error|Object} error - Error to check
+   * @returns {boolean} True if the error should trigger a retry
+   */
+  isValidRetryErr(error) {
+    const validRetryErrs = [
+      'ECONNREFUSED',
+      'ECONNRESET',
+      'ETIMEDOUT',
+      'EADDRINFO',
+      'ESOCKETTIMEDOUT',
+    ];
+
+    if (typeof error === 'string') {
+      return validRetryErrs.includes(error);
+    }
+
+    if (error && typeof error === 'object' && 'code' in error && error.code) {
+      return validRetryErrs.includes(error.code);
+    }
+
+    if (error && typeof error === 'object' && 'message' in error) {
+      return validRetryErrs.includes(error.message);
+    }
+
+    return false;
   }
 
   /**
@@ -574,40 +677,49 @@ class SuperagentAdapter {
         }
       }
       
-      let request = superagent.get(baseUrl);
-      
-      // Add headers if provided
-      if (data.headers) {
-        request = request.set(data.headers);
-      }
-      
-      // Add merged query parameters if any exist
-      if (Object.keys(processedQuery).length > 0) {
-        request = request.query(processedQuery);
-      }
-      
-      const response = await request.ok((res) => res.status < 600);
-      
-      const formattedResponse = {
-        status: response.status,
-        body: response.body,
-        request: {
-          method: 'GET',
-          url: url,
-          header: data.headers || {},
-          _data: undefined
+    for (let attempt = 0; attempt <= 3; attempt++) {
+      try {
+        let request = superagent.get(baseUrl);
+
+        // Add headers if provided
+        if (data.headers) {
+          request = request.set(data.headers);
         }
-      };
-      
-      const formattedRsp = logRequest(formatRsp(formattedResponse), startDate);
-      this.logger(formattedRsp);
-      
-      return {
-        status: response.status,
-        body: response.body
-      };
+
+        // Add merged query parameters if any exist
+        if (Object.keys(processedQuery).length > 0) {
+          request = request.query(processedQuery);
+        }
+
+        const response = await request.ok((res) => res.status < 600);
+
+        const formattedResponse = {
+          status: response.status,
+          body: response.body,
+          request: {
+            method: 'GET',
+            url: url,
+            header: data.headers || {},
+            _data: undefined
+          }
+        };
+
+        const formattedRsp = logRequest(formatRsp(formattedResponse), startDate);
+        this.logger(formattedRsp);
+
+        return {
+          status: response.status,
+          body: response.body
+        };
+      } catch (error) {
+        if (attempt < 3 && this.isValidRetryErr(error)) {
+          continue;
+        }
+        throw error;
+      }
+    }
     } catch (error) {
-      throw new Error(`HTTP GET request failed: ${error.message}`);
+      throw error;
     }
   }
 
@@ -663,45 +775,54 @@ class SuperagentAdapter {
         }
       }
       
-      let request = superagent.post(baseUrl);
-      
-      // Add headers if provided
-      if (data.headers) {
-        request = request.set(data.headers);
-      }
-      
-      // Add query parameters if any exist
-      if (Object.keys(processedQuery).length > 0) {
-        request = request.query(processedQuery);
-      }
-      
-      // Add body if provided
-      if (data.body) {
-        request = request.send(data.body);
-      }
-      
-      const response = await request.ok((res) => res.status < 600);
-      
-      const formattedResponse = {
-        status: response.status,
-        body: response.body,
-        request: {
-          method: 'POST',
-          url: url,
-          header: data.headers || {},
-          _data: data.body
+    for (let attempt = 0; attempt <= 3; attempt++) {
+      try {
+        let request = superagent.post(baseUrl);
+
+        // Add headers if provided
+        if (data.headers) {
+          request = request.set(data.headers);
         }
-      };
-      
-      const formattedRsp = logRequest(formatRsp(formattedResponse), startDate);
-      this.logger(formattedRsp);
-      
-      return {
-        status: response.status,
-        body: response.body
-      };
+
+        // Add query parameters if any exist
+        if (Object.keys(processedQuery).length > 0) {
+          request = request.query(processedQuery);
+        }
+
+        // Add body if provided
+        if (data.body) {
+          request = request.send(data.body);
+        }
+
+        const response = await request.ok((res) => res.status < 600);
+
+        const formattedResponse = {
+          status: response.status,
+          body: response.body,
+          request: {
+            method: 'POST',
+            url: url,
+            header: data.headers || {},
+            _data: data.body
+          }
+        };
+
+        const formattedRsp = logRequest(formatRsp(formattedResponse), startDate);
+        this.logger(formattedRsp);
+
+        return {
+          status: response.status,
+          body: response.body
+        };
+      } catch (error) {
+        if (attempt < 3 && this.isValidRetryErr(error)) {
+          continue;
+        }
+        throw error;
+      }
+    }
     } catch (error) {
-      throw new Error(`HTTP POST request failed: ${error.message}`);
+      throw error;
     }
   }
 
@@ -755,42 +876,51 @@ class SuperagentAdapter {
         }
       }
       
-      let request = superagent.put(baseUrl);
-      
-      if (data.headers) {
-        request = request.set(data.headers);
-      }
-      
-      if (Object.keys(processedQuery).length > 0) {
-        request = request.query(processedQuery);
-      }
-      
-      if (data.body) {
-        request = request.send(data.body);
-      }
-      
-      const response = await request.ok((res) => res.status < 600);
-      
-      const formattedResponse = {
-        status: response.status,
-        body: response.body,
-        request: {
-          method: 'PUT',
-          url: url,
-          header: data.headers || {},
-          _data: data.body
+    for (let attempt = 0; attempt <= 3; attempt++) {
+      try {
+        let request = superagent.put(baseUrl);
+
+        if (data.headers) {
+          request = request.set(data.headers);
         }
-      };
-      
-      const formattedRsp = logRequest(formatRsp(formattedResponse), startDate);
-      this.logger(formattedRsp);
-      
-      return {
-        status: response.status,
-        body: response.body
-      };
+
+        if (Object.keys(processedQuery).length > 0) {
+          request = request.query(processedQuery);
+        }
+
+        if (data.body) {
+          request = request.send(data.body);
+        }
+
+        const response = await request.ok((res) => res.status < 600);
+
+        const formattedResponse = {
+          status: response.status,
+          body: response.body,
+          request: {
+            method: 'PUT',
+            url: url,
+            header: data.headers || {},
+            _data: data.body
+          }
+        };
+
+        const formattedRsp = logRequest(formatRsp(formattedResponse), startDate);
+        this.logger(formattedRsp);
+
+        return {
+          status: response.status,
+          body: response.body
+        };
+      } catch (error) {
+        if (attempt < 3 && this.isValidRetryErr(error)) {
+          continue;
+        }
+        throw error;
+      }
+    }
     } catch (error) {
-      throw new Error(`HTTP PUT request failed: ${error.message}`);
+      throw error;
     }
   }
 
@@ -844,42 +974,51 @@ class SuperagentAdapter {
         }
       }
       
-      let request = superagent.patch(baseUrl);
-      
-      if (data.headers) {
-        request = request.set(data.headers);
-      }
-      
-      if (Object.keys(processedQuery).length > 0) {
-        request = request.query(processedQuery);
-      }
-      
-      if (data.body) {
-        request = request.send(data.body);
-      }
-      
-      const response = await request.ok((res) => res.status < 600);
-      
-      const formattedResponse = {
-        status: response.status,
-        body: response.body,
-        request: {
-          method: 'PATCH',
-          url: url,
-          header: data.headers || {},
-          _data: data.body
+    for (let attempt = 0; attempt <= 3; attempt++) {
+      try {
+        let request = superagent.patch(baseUrl);
+
+        if (data.headers) {
+          request = request.set(data.headers);
         }
-      };
-      
-      const formattedRsp = logRequest(formatRsp(formattedResponse), startDate);
-      this.logger(formattedRsp);
-      
-      return {
-        status: response.status,
-        body: response.body
-      };
+
+        if (Object.keys(processedQuery).length > 0) {
+          request = request.query(processedQuery);
+        }
+
+        if (data.body) {
+          request = request.send(data.body);
+        }
+
+        const response = await request.ok((res) => res.status < 600);
+
+        const formattedResponse = {
+          status: response.status,
+          body: response.body,
+          request: {
+            method: 'PATCH',
+            url: url,
+            header: data.headers || {},
+            _data: data.body
+          }
+        };
+
+        const formattedRsp = logRequest(formatRsp(formattedResponse), startDate);
+        this.logger(formattedRsp);
+
+        return {
+          status: response.status,
+          body: response.body
+        };
+      } catch (error) {
+        if (attempt < 3 && this.isValidRetryErr(error)) {
+          continue;
+        }
+        throw error;
+      }
+    }
     } catch (error) {
-      throw new Error(`HTTP PATCH request failed: ${error.message}`);
+      throw error;
     }
   }
 
@@ -932,38 +1071,47 @@ class SuperagentAdapter {
         }
       }
       
-      let request = superagent.delete(baseUrl);
-      
-      if (data && data.headers) {
-        request = request.set(data.headers);
-      }
-      
-      if (Object.keys(processedQuery).length > 0) {
-        request = request.query(processedQuery);
-      }
-      
-      const response = await request.ok((res) => res.status < 600);
-      
-      const formattedResponse = {
-        status: response.status,
-        body: response.body,
-        request: {
-          method: 'DELETE',
-          url: url,
-          header: data.headers || {},
-          _data: undefined
+    for (let attempt = 0; attempt <= 3; attempt++) {
+      try {
+        let request = superagent.delete(baseUrl);
+
+        if (data && data.headers) {
+          request = request.set(data.headers);
         }
-      };
-      
-      const formattedRsp = logRequest(formatRsp(formattedResponse), startDate);
-      this.logger(formattedRsp);
-      
-      return {
-        status: response.status,
-        body: response.body
-      };
+
+        if (Object.keys(processedQuery).length > 0) {
+          request = request.query(processedQuery);
+        }
+
+        const response = await request.ok((res) => res.status < 600);
+
+        const formattedResponse = {
+          status: response.status,
+          body: response.body,
+          request: {
+            method: 'DELETE',
+            url: url,
+            header: data.headers || {},
+            _data: undefined
+          }
+        };
+
+        const formattedRsp = logRequest(formatRsp(formattedResponse), startDate);
+        this.logger(formattedRsp);
+
+        return {
+          status: response.status,
+          body: response.body
+        };
+      } catch (error) {
+        if (attempt < 3 && this.isValidRetryErr(error)) {
+          continue;
+        }
+        throw error;
+      }
+    }
     } catch (error) {
-      throw new Error(`HTTP DELETE request failed: ${error.message}`);
+      throw error;
     }
   }
 }

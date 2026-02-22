@@ -254,6 +254,7 @@ npm run demo:js   # JavaScript demo
 - **Ports and Adapters Architecture**: Split TypeScript into separate adapter files with dynamic loading (Issue #11)
 - **Zero Compile-Time Dependencies**: Removed all static imports of adapters, only IHttpClient interface imported
 - **Copy-Paste Library Philosophy**: Users copy 3 files for TS (HttpReq.ts + IHttpClient.ts + one adapter) or 1 file for JS
+- Issue #21: Missing retry logic in JavaScript version — added `isValidRetryErr()` + retry `for` loop to all 10 HTTP methods (AxiosAdapter + SuperagentAdapter); errors now thrown directly (no wrapping), preserving `code` property; re-enabled `test:acceptance:js` in package.json
 - Issue #13: Obfuscate ALL authorization headers (not just Basic/Bearer)
 - Issue #12: Logger default behavior mismatch (JS used no-op, should use console.log)
 - Issue #11: Fix lazy loading in TypeScript version (removed top-level imports)

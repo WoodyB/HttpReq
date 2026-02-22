@@ -646,6 +646,72 @@ describe.each([
     });
   });
 
+  describe('Retry Behavior', () => {
+    it('should retry on ECONNRESET and succeed on retry', async () => {
+      // First attempt fails with a network error
+      const connResetError = new Error('socket hang up');
+      (connResetError as any).code = 'ECONNRESET';
+      nock(testBaseUrl)
+        .get('/retry-success')
+        .replyWithError(connResetError);
+
+      // Second attempt (first retry) succeeds
+      nock(testBaseUrl)
+        .get('/retry-success')
+        .reply(200, { success: true, retried: true });
+
+      const response = await httpReq.GET<any>(`${testBaseUrl}/retry-success`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.retried).toBe(true);
+    });
+
+    it('should throw original error (with code preserved) after max retries exceeded', async () => {
+      // 4 failures = initial attempt + 3 retries
+      const connResetError = new Error('socket hang up');
+      (connResetError as any).code = 'ECONNRESET';
+      for (let i = 0; i < 4; i++) {
+        nock(testBaseUrl)
+          .get('/always-fail-retry')
+          .replyWithError(connResetError);
+      }
+
+      await expect(httpReq.GET(`${testBaseUrl}/always-fail-retry`))
+        .rejects.toMatchObject({ code: 'ECONNRESET' });
+    });
+
+    it('should not retry on non-retryable errors', async () => {
+      // Only one interceptor registered - if retry happened a second request would
+      // fail with "Nock: No match for request" rather than the original error
+      const notFoundError = new Error('getaddrinfo ENOTFOUND api.test.com');
+      (notFoundError as any).code = 'ENOTFOUND';
+      nock(testBaseUrl)
+        .get('/non-retryable')
+        .replyWithError(notFoundError);
+
+      // Should throw on first attempt without retrying
+      await expect(httpReq.GET(`${testBaseUrl}/non-retryable`))
+        .rejects.toThrow();
+
+      // nock interceptor was consumed (only one was registered, no retry happened)
+      expect(nock.isDone()).toBe(true);
+    });
+
+    it('JS source has retry logic in HttpReq.js', () => {
+      const HttpReqJsSource = require('fs').readFileSync(
+        require('path').resolve(__dirname, '../../src/HttpReq.js'),
+        'utf8'
+      );
+
+      expect(HttpReqJsSource).toContain('for (let attempt = 0; attempt <= 3; attempt++)');
+      expect(HttpReqJsSource).toContain('isValidRetryErr');
+      expect(HttpReqJsSource).toContain('ECONNREFUSED');
+      expect(HttpReqJsSource).toContain('ETIMEDOUT');
+      expect(HttpReqJsSource).toContain('ECONNRESET');
+    });
+  });
+
   describe('Retry Logic Verification', () => {
     it('has retry logic implemented in code', () => {
       // Retry logic is now in the adapter classes (AxiosAdapter.ts and SuperagentAdapter.ts)
